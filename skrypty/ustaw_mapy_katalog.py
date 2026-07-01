@@ -31,7 +31,7 @@ def ustaw_mapy(iface):
     proj = QgsProject.instance()
     stan_na, ok = QInputDialog.getText(
         None, 'Podaj stan na:', 'Stan na:',
-        text='01.01.'+str(int(datetime.now().year)+1)
+        text='01.01.'+str(datetime.now().year)
     )
     if not ok:
         return

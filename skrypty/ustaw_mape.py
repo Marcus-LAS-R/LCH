@@ -321,7 +321,7 @@ class UstawMape():
         """Zmien date w mapie"""
         stan_na, ok = QInputDialog.getText(
             None, 'Podaj stan na:', 'Stan na:',
-            text='01.01.'+str(int(datetime.now().year)+1)
+            text='01.01.'+str(datetime.now().year)
         )
         if not ok:
             self.zmien_meta()
@@ -367,7 +367,7 @@ class UstawMape():
         it = self.lay.itemById('zm-stan')
         if it is not None:
             if stan in [None, '']:
-                stan = '01.01.' + str(int(datetime.now().year)+1)
+                stan = '01.01.' + str(datetime.now().year)
             it.setText(f'Stan na: {stan}')
 
 

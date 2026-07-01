@@ -35,7 +35,7 @@ from .skrypty import genMapRam, ustaw_mape, ustawMapRam, pomocnicze, \
     planarize, dane_przetwarzanie, dopisz_kody, kasowniki, generuj_etykiety, \
     ustaw_mapy_katalog, eksportuj_mapy_katalog, spisy_atlas, \
     shp_generuj_sulmn, uzupelnij_meta, struktura, generuj_krzewy, \
-    shp_sulmn_spr
+    shp_sulmn_spr, shp_przygotuj_klu_lft, drukuj_mapy_katalog
 
 
 
@@ -290,6 +290,10 @@ class Lch:
             'Linie oddziałowe', self.iface.mainWindow())
         self.a_lin_oddz.triggered.connect(self.generuj_lin_oddz)
 
+        self.a_gen_klu_lft = QAction(
+            QIcon(None), 'Generuj KLU_LFT', self.iface.mainWindow())
+        self.a_gen_klu_lft.triggered.connect(self.generuj_klu_lft)
+
         self.a_dopisz_kody = QAction(
             QIcon(os.path.join(self.plugin_dir, 'ico', 'wydz_dopisz.png')),
             'Dopisz kody', self.iface.mainWindow())
@@ -326,6 +330,11 @@ class Lch:
             'Eksportuj Mapy (Katalog)', self.iface.mainWindow())
         self.a_eksportuj_mapy.triggered.connect(self.eksport_map_z_katalogu)
 
+        self.a_drukuj_mapy = QAction(
+            QIcon(None),
+            'Drukuj Mapy (Katalog)', self.iface.mainWindow())
+        self.a_drukuj_mapy.triggered.connect(self.drukuj_mapy_z_katalogu)
+
         self.a_gen_sulmn = QAction(
             QIcon(os.path.join(self.plugin_dir, 'ico', 'sulmn.png')),
             'Generuj SULMN',
@@ -344,6 +353,11 @@ class Lch:
             self.iface.mainWindow())
         self.a_gen_krzew.triggered.connect(self.generuj_krzewy)
 
+        self.a_co_nowego = QAction(
+            'Co nowego?',
+            self.iface.mainWindow())
+        self.a_co_nowego.triggered.connect(self.pokaz_co_nowego)
+
         # MENU -------------
         self.menu_pom = QMenu('Przygotuj Pomocnicze', self.menu)
         self.menu_pom.addAction(self.a_przygotuj_upul)
@@ -356,6 +370,7 @@ class Lch:
         self.menu.addSeparator()
         self.menu.addAction(self.a_gen_kas)
         self.menu.addAction(self.a_lin_oddz)
+        self.menu.addAction(self.a_gen_klu_lft)
         self.menu.addAction(self.a_gen_etyk)
         self.menu.addAction(self.a_mapram)
         self.menu.addMenu(self.menu_pom)
@@ -372,10 +387,13 @@ class Lch:
         self.menu.addAction(self.a_ustaw_mapy)
         self.menu.addAction(self.a_uakt_meta)
         self.menu.addAction(self.a_eksportuj_mapy)
+        self.menu.addAction(self.a_drukuj_mapy)
         self.menu.addSeparator()
         self.menu.addAction(self.a_gen_sulmn)
         self.menu.addAction(self.a_spr_sulmn)
         self.menu.addAction(self.a_gen_krzew)
+        self.menu.addSeparator()
+        self.menu.addAction(self.a_co_nowego)
 
         # TOOLBAR ----------
         self.toolbar.addAction(self.a_struk)
@@ -478,6 +496,9 @@ class Lch:
     def generuj_lin_oddz(self):
         dane_przetwarzanie.linie_oddz(self.iface)
 
+    def generuj_klu_lft(self):
+        shp_przygotuj_klu_lft.przygotuj_klu_lft(self.iface)
+
     def planaryzuj(self):
         planarize.Planarize(self.iface)
 
@@ -508,6 +529,9 @@ class Lch:
 
     def eksport_map_z_katalogu(self):
         eksportuj_mapy_katalog.eksportuj_mapy(self.iface)
+
+    def drukuj_mapy_z_katalogu(self):
+        drukuj_mapy_katalog.drukuj_mapy(self.iface)
 
     def generuj_spisy_atlasow(self):
         spisy_atlas.GenerujSpisAtlasow(self.iface)
@@ -542,3 +566,25 @@ class Lch:
             g.generujWarstwy()
 
             g.przygotuj_projekt()
+
+    def pokaz_co_nowego(self):
+        from PyQt5.QtWidgets import QDialog, QVBoxLayout, QTextBrowser, QDialogButtonBox
+        changelog_path = os.path.join(self.plugin_dir, 'CHANGELOG.txt')
+        try:
+            with open(changelog_path, encoding='utf-8') as f:
+                tekst = f.read()
+        except Exception:
+            tekst = 'Nie udało się wczytać pliku CHANGELOG.txt'
+
+        dlg = QDialog(self.iface.mainWindow())
+        dlg.setWindowTitle('Co nowego?')
+        dlg.setMinimumSize(640, 480)
+        layout = QVBoxLayout()
+        tb = QTextBrowser()
+        tb.setPlainText(tekst)
+        layout.addWidget(tb)
+        btn = QDialogButtonBox(QDialogButtonBox.Close)
+        btn.rejected.connect(dlg.reject)
+        layout.addWidget(btn)
+        dlg.setLayout(layout)
+        dlg.exec_()

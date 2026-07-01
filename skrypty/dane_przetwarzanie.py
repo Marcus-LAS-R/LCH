@@ -3,8 +3,10 @@ import shutil
 from qgis.core import QgsProject, Qgis, QgsVectorFileWriter, QgsVectorLayer,\
     QgsCoordinateReferenceSystem, QgsExpression, QgsFeatureRequest, \
     QgsSpatialIndex, QgsField
-from PyQt5.QtWidgets import QFileDialog
-from PyQt5.QtCore import QVariant
+from PyQt5.QtWidgets import (QFileDialog, QMessageBox, QDialog,
+                              QDialogButtonBox, QVBoxLayout, QListWidget,
+                              QListWidgetItem, QLabel)
+from PyQt5.QtCore import Qt, QVariant
 import processing
 from collections import defaultdict
 from .planarize import Planarize
@@ -281,61 +283,188 @@ class UzupelnijLinPnsw():
             "ogr")
 
 
-def polacz_warstwy(iface):
-    kat = QFileDialog.getExistingDirectory(
-        iface.mainWindow(), "Wybierz katalog gminy: ")
+class _WybierzWarstwDialog(QDialog):
+    DOMYSLNE = {
+        "LS", "DZKAT", "WYDZ", "PNSW", "OBR", "ODDZ", "KLU", "UZYTKI",
+    }
 
+    def __init__(self, parent, znalezione):
+        super().__init__(parent)
+        self.setWindowTitle('Wybierz warstwy do połączenia')
+        self.setMinimumWidth(300)
+
+        layout = QVBoxLayout()
+        layout.addWidget(QLabel('Zaznacz warstwy do połączenia:'))
+
+        self.lista = QListWidget()
+        for nazwa in sorted(znalezione):
+            item = QListWidgetItem(nazwa)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            stan = Qt.Checked if nazwa in self.DOMYSLNE else Qt.Unchecked
+            item.setCheckState(stan)
+            self.lista.addItem(item)
+
+        layout.addWidget(self.lista)
+
+        przyciski = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        przyciski.accepted.connect(self.accept)
+        przyciski.rejected.connect(self.reject)
+        layout.addWidget(przyciski)
+
+        self.setLayout(layout)
+
+    def wybrane(self):
+        return [
+            self.lista.item(i).text()
+            for i in range(self.lista.count())
+            if self.lista.item(i).checkState() == Qt.Checked
+        ]
+
+
+def _kopiuj_shp(src, dst):
+    """Kopiuje plik SHP wraz z plikami towarzyszącymi."""
+    base_src = src[:-4]
+    base_dst = dst[:-4]
+    for ext in ['shp', 'dbf', 'prj', 'shx', 'cpg']:
+        s = base_src + '.' + ext
+        if os.path.isfile(s):
+            shutil.copy(s, base_dst + '.' + ext)
+
+
+def _scal_liste(pliki, nazwa, out, iface):
+    """Scala lub kopiuje listę plików SHP do folderu out."""
+    if len(pliki) == 1:
+        _kopiuj_shp(pliki[0], os.path.join(out, nazwa + ".shp"))
+    elif len(pliki) > 1:
+        processing.run(
+            "native:mergevectorlayers",
+            {
+                'LAYERS': pliki,
+                'CRS': None,
+                'OUTPUT': os.path.join(out, nazwa + ".shp"),
+            }
+        )
+
+
+def _polacz_gmina(iface, kat, z_ogolne=False):
+    """Tryb 1: folder gminy → foldery obrębów → SHP/ → scal wg stałej listy."""
     nazwy = [
         "WYDZ_POL",
-        # "ATLAS_AFT",
-        # "OBREBY_AFT",
         "WYDZ_OPS",
         "LINIE",
         "PNSW",
         "DZKAT",
+        "DZKAT_OPS",
         "KAS",
-        # "EWID",
+        "KLU_AFT",
         "ODDZ",
         "LIN_ODDZ",
     ]
 
-    gmi = kat.split(os.sep)[-1]
-    out = os.path.abspath(os.path.join(kat, "..", gmi+"_GIS"))
-    try:
-        os.stat(out)
-    except:  # noqa
-        os.mkdir(out)
+    gmi = os.path.basename(kat)
+    out = os.path.abspath(os.path.join(kat, "..", gmi + "_GIS"))
+    os.makedirs(out, exist_ok=True)
 
+    shp_dirs = []
+    for d in sorted(os.listdir(kat)):
+        if d == 'OGOLNE':
+            continue
+        child = os.path.join(kat, d)
+        if os.path.isdir(child) and os.path.isdir(os.path.join(child, 'SHP')):
+            shp_dirs.append(os.path.join(child, 'SHP'))
+
+    braki = []
     for n in nazwy:
-        # tablica z plikami o okreslonej nazwie
-        pliki = []
-        for root, dirs, files in os.walk(kat):
-            for file in files:
-                if file == n + ".shp":
-                    pliki.append(os.path.join(root, file))
+        pliki = [
+            os.path.join(d, n + ".shp")
+            for d in shp_dirs
+            if os.path.isfile(os.path.join(d, n + ".shp"))
+        ]
+        if not pliki:
+            braki.append(n)
+        else:
+            _scal_liste(pliki, n, out, iface)
 
-        if len(pliki) == 0:
-            pass
+    if z_ogolne:
+        ogolne_dir = os.path.join(kat, 'OGOLNE')
+        if os.path.isdir(ogolne_dir):
+            for f in sorted(os.listdir(ogolne_dir)):
+                if f.lower().endswith('.shp'):
+                    _kopiuj_shp(os.path.join(ogolne_dir, f), os.path.join(out, f))
 
-        elif len(pliki) == 1:
-            shutil.copy(pliki[0], os.path.join(out, n+".shp"))
-            for ext in ['dbf', 'prj', 'shx']:
-                if os.isfiel(pliki[0][:-3]+ext):
-                    shutil.copy(pliki[0][:-3]+ext, os.path.join(out, n+f".{ext}"))
+    if braki:
+        iface.messageBar().pushMessage(
+            'Uwaga',
+            'Nie znaleziono plików: ' + ', '.join(braki),
+            Qgis.Warning)
 
-        elif len(pliki) > 1:
-            processing.run(
-                "native:mergevectorlayers",
-                {'LAYERS': pliki,
-                'CRS': None,
-                'OUTPUT': os.path.join(out, n+".shp")
-                }
-            )
+    iface.messageBar().pushMessage('OK', 'Połączono warstwy (tryb gminy)', Qgis.Success)
 
-    iface.messageBar().pushMessage(
-        'OK',
-        'Połączono warstwy',
-        Qgis.Success)
+
+def _polacz_region(iface, kat):
+    """Tryb 2: folder z gminami → SHP/ każdej gminy → dialog wyboru → scal."""
+    pliki_wg_nazwy = defaultdict(list)
+    for d in sorted(os.listdir(kat)):
+        child = os.path.join(kat, d)
+        if not os.path.isdir(child):
+            continue
+        shp_dir = os.path.join(child, 'SHP')
+        if not os.path.isdir(shp_dir):
+            continue
+        for f in sorted(os.listdir(shp_dir)):
+            if f.lower().endswith('.shp'):
+                pliki_wg_nazwy[os.path.splitext(f)[0]].append(
+                    os.path.join(shp_dir, f))
+
+    if not pliki_wg_nazwy:
+        iface.messageBar().pushMessage(
+            'Błąd', 'Nie znaleziono plików SHP w podfolderach SHP/', Qgis.Critical)
+        return
+
+    dlg = _WybierzWarstwDialog(iface.mainWindow(), pliki_wg_nazwy.keys())
+    if dlg.exec_() != QDialog.Accepted:
+        return
+
+    nazwy = dlg.wybrane()
+    if not nazwy:
+        return
+
+    out = os.path.join(kat, "SHP_razem")
+    os.makedirs(out, exist_ok=True)
+
+    for nazwa in nazwy:
+        _scal_liste(pliki_wg_nazwy[nazwa], nazwa, out, iface)
+
+    iface.messageBar().pushMessage('OK', 'Połączono warstwy (tryb regionu)', Qgis.Success)
+
+
+def polacz_warstwy(iface):
+    kat = QFileDialog.getExistingDirectory(
+        iface.mainWindow(), "Wybierz katalog: ")
+    if not kat:
+        return
+
+    # Autowykrywanie: tryb 1 gdy istnieje folder OGOLNE
+    # oraz WYDZ_POL.shp i WYDZ_OPS.shp w folderze SHP któregoś obrębu
+    dzieci = os.listdir(kat)
+    ma_ogolne = 'OGOLNE' in dzieci
+    ma_wydz = any(
+        os.path.isfile(os.path.join(kat, d, 'SHP', 'WYDZ_POL.shp')) and
+        os.path.isfile(os.path.join(kat, d, 'SHP', 'WYDZ_OPS.shp'))
+        for d in dzieci
+    )
+    tryb = 1 if (ma_ogolne and ma_wydz) else 2
+
+    if tryb == 1:
+        odp = QMessageBox.question(
+            iface.mainWindow(),
+            'Warstwy OGÓLNE',
+            'Dołączyć warstwy z folderu OGOLNE do folderu wynikowego?',
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No)
+        _polacz_gmina(iface, kat, z_ogolne=(odp == QMessageBox.Yes))
+    else:
+        _polacz_region(iface, kat)
 
 
 def linie_oddz(iface):

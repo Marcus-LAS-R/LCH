@@ -4,8 +4,9 @@ import platform
 import glob
 from qgis.core import QgsProject, Qgis, QgsCoordinateReferenceSystem, \
     QgsGeometry, QgsPointXY, QgsFeature, QgsVectorLayer, QgsVectorFileWriter, \
-    QgsFeatureRequest
+    QgsFeatureRequest, QgsWkbTypes, QgsField
 from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtCore import QVariant
 
 
 class SciezkaPomocnicze:
@@ -78,11 +79,65 @@ class WarstwyPomocnicze():
                 print('Najpierw musisz wygenerować maskę na podstawie oddz')
         return wrap
 
+    def _dopisz_wydz_pol_do_lasy(self):
+        lasy_path = os.path.join(self.kat, "LASY_INNE_AFT.shp")
+        if not os.path.isfile(lasy_path):
+            return
+
+        wydz_lista = QgsProject.instance().mapLayersByName("WYDZ_POL")
+        if not wydz_lista:
+            return
+        wydz = wydz_lista[0]
+
+        lasy = QgsVectorLayer(lasy_path, "LASY_INNE_AFT", "ogr")
+        if not lasy.isValid():
+            return
+
+        lasy.startEditing()
+        pr = lasy.dataProvider()
+
+        if 'TYP' not in [f.name() for f in lasy.fields()]:
+            pr.addAttributes([QgsField('TYP', QVariant.String, len=10)])
+            lasy.updateFields()
+
+        typ_idx = lasy.fields().indexOf('TYP')
+
+        for feat in wydz.getFeatures():
+            nowy = QgsFeature(lasy.fields())
+            nowy.setGeometry(feat.geometry())
+            nowy.setAttribute(typ_idx, 'PRYW')
+            pr.addFeatures([nowy])
+
+        lasy.commitChanges()
+
     def przygotuj_upul(self):
         self.pobierz_katalog()
+        if not self.kat:
+            return
         self.przygotuj_maske()
-        for war in ['DROGI_LFT', 'ODDZIALY', ]:
+        for war in ['DROGI_LFT', 'ODDZIALY', 'F_OCHRONY', ]:
             self.przetnij_warstwe(war)
+
+        self._dopisz_wydz_pol_do_lasy()
+
+        crs = QgsCoordinateReferenceSystem("epsg:2180")
+        QgsVectorFileWriter.writeAsVectorFormat(
+            self.oddz,
+            os.path.join(self.kat, "OBREBY_AFT.shp"),
+            "UTF-8",
+            crs,
+            "ESRI Shapefile")
+
+        gmin_pliki = glob.glob(os.path.join(self.oddz_kat, 'GMIN*.shp'))
+        if gmin_pliki:
+            gmin_lyr = QgsVectorLayer(gmin_pliki[0], 'gmin', 'ogr')
+            if gmin_lyr.isValid():
+                QgsVectorFileWriter.writeAsVectorFormat(
+                    gmin_lyr,
+                    os.path.join(self.kat, "GMINY_AFT.shp"),
+                    "UTF-8",
+                    crs,
+                    "ESRI Shapefile")
 
     def przygotuj_fochr(self):
         self.kat = self.oddz_kat
@@ -158,11 +213,13 @@ class WarstwyPomocnicze():
                 if len(feats) == 0:
                     return
 
-                t = 'MultiPolygon'
-                if war in ['miejscowosci', 'OSP_PFT']:
-                    t = "Point"
-                if war in ['RZEKI_LFT', 'DROGI_LFT']:
-                    t = "MultiLineString"
+                geom_type = QgsWkbTypes.geometryType(warstwa.wkbType())
+                if geom_type == QgsWkbTypes.PointGeometry:
+                    t = 'Point'
+                elif geom_type == QgsWkbTypes.LineGeometry:
+                    t = 'LineString'
+                else:
+                    t = 'Polygon'
                 lyr = QgsVectorLayer(
                     t+"?crs=epsg:2180&index=yes", war, 'memory')
                 lyr.startEditing()

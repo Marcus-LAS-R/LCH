@@ -1,12 +1,21 @@
 from qgis.core import QgsProject, Qgis
 import os
-from PyQt5.QtWidgets import QFileDialog
+from datetime import datetime
+from PyQt5.QtWidgets import QFileDialog, QInputDialog
 from .ustaw_mape import UstawMape
 
 
 def uaktualnij_mapy(iface):
     projects_folder = QFileDialog.getExistingDirectory(
         iface.mainWindow(), "Wybierz katalog: ")
+    if not projects_folder:
+        return
+
+    stan_na, ok = QInputDialog.getText(
+        iface.mainWindow(), 'Stan na:', 'Data stanu:',
+        text='01.01.' + str(datetime.now().year))
+    if not ok:
+        return
 
     # stworz folder plotowania oIle nie istnieje
     plot_folder = os.path.abspath(
@@ -32,7 +41,7 @@ def uaktualnij_mapy(iface):
         if u.sprawdz_warstwy():
             if u.znajdz_bazy():
                 u.pobierz_meta()
-                u.zmien_meta()
+                u.zmien_meta(stan_na)
                 proj.write()
                 wykonane += 1
 

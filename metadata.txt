@@ -1,39 +1,21 @@
-# This file contains metadata for your plugin. Since 
-# version 2.0 of QGIS this is the proper way to supply 
-# information about a plugin. The old method of 
-# embedding metadata in __init__.py will 
-# is no longer supported since version 2.0.
-
-# This file should be included when you package your plugin.# Mandatory items:
-
 [general]
 name=LCH LAS-R
-qgisMinimumVersion=3.6
-description=Plugin ułatwiający generowanie map dla UPUL
-version=1.09
-author=LAS-R
-email=biuro@las-r.pl
+qgisMinimumVersion=3.11
+description=Plugin ułatwiający generowanie map dla UPUL (Uproszczone Plany Urządzania Lasu)
+version=2.0a
+author=Paweł Krąpiec, Marek Młynarczyk
+email=p.krapiec@las-r.pl, m.mlynarczyk@las-r.pl
 
-about=Plugin ułatwiający generowanie map dla UPUL
+about=Plugin ułatwiający generowanie map dla UPUL (Uproszczone Plany Urządzania Lasu)
 
-tracker=http://bugs
-repository=http://repo
-# End of mandatory metadata
-
-# Recommended items:
-
-# Uncomment the following line and add your changelog:
-# changelog=
+tracker=https://github.com/Marcus-LAS-R/LCH/issues
+repository=https://github.com/Marcus-LAS-R/LCH
 
 # Tags are comma separated with spaces allowed
-tags=python
+tags=python, forestry, upul, las-r
 
-homepage=http://homepage
+homepage=https://github.com/Marcus-LAS-R/LCH
 category=Plugins
 icon=icon.png
-# experimental flag
 experimental=False
-
-# deprecated flag (applies to the whole plugin, not just a single version)
 deprecated=False
-

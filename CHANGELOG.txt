@@ -1,0 +1,74 @@
+CHANGELOG — Wtyczka LCH LAS-R
+==============================
+
+Wersja 2.0a — zmiany wprowadzone 15–26.06.2026
+------------------------------------------------
+
+### Nowe funkcje
+
+1. DRUKOWANIE MAP Z KATALOGU (drukuj_mapy_katalog.py — nowy plik)
+   - Nowa pozycja menu: "Drukuj Mapy (Katalog)"
+   - Dialog wyboru: folder z PDF-ami, drukarka (lista drukarek Windows), liczba
+     kopii, ścieżka do SumatraPDF.exe
+   - Ścieżka do SumatraPDF jest zapisywana lokalnie i odpamiętywana przy kolejnym
+     uruchomieniu
+   - Rozmiar papieru ustawiany automatycznie na podstawie wymiarów strony PDF
+     (przez win32print)
+   - Inteligentne drukowanie par — jeśli istnieje plik _x2.pdf i zamówiono ≥2
+     kopie, wtyczka drukuje pary (plik _x2.pdf), a ewentualną jedną dodatkową
+     kopię — z oryginału
+
+2. PAROWANIE PASÓW W EKSPORCIE (eksportuj_mapy_katalog.py)
+   - Nowy checkbox "Paruj pasy (2 mapy na arkuszu)" w oknie eksportu
+   - Wąskie mapy (krótsza krawędź < 420 mm) są automatycznie dublowane do pliku
+     NAZWA_x2.pdf — dwa egzemplarze na jednym arkuszu (pionowe obok siebie,
+     poziome jedna pod drugą)
+   - Wymaga biblioteki pypdf (ostrzeżenie gdy brak)
+
+3. GENEROWANIE KLU_LFT (shp_przygotuj_klu_lft.py — nowy plik)
+   - Nowa pozycja menu: "Generuj KLU_LFT"
+   - Odnajduje warstwę KLU* w TOC
+   - Dodaje pola MUNICIP i COMMUNITY jeśli brakuje
+   - Uzupełnia kody z pola G5IDD lub IDENTYFIKA (jeśli żadne nie istnieje —
+     pyta użytkownika o kolumnę)
+   - Eksportuje KLU_AFT.shp i uruchamia model QGIS klu_aft2klu_lft →
+     KLU_LFT.shp
+
+4. USTAW LEGENDY Z KATALOGU (ustaw_mapy_katalog.py)
+   - Nowa funkcja ustaw_leg() — nowa pozycja menu "Ustaw Legendy (Katalog)"
+   - Przetwarza wszystkie projekty z plikami LEG*.qgs/qgz w podanym katalogu
+   - Ustawia legendę i eksportuje do PDF w folderze PLOTOWANIE
+
+5. UAKTUALNIJ METADANE Z KATALOGU (uzupelnij_meta.py)
+   - Nowa funkcja uaktualnij_mapy() — nowa pozycja menu "Uaktualnij Metadane
+     (Katalog)"
+   - Aktualizuje dane opisowe (województwo, powiat, gmina, pow. opracowania,
+     stan na) we wszystkich mapach z katalogu BEZ eksportu do PDF
+
+### Poprawki i ulepszenia
+
+6. PRZYGOTUJ POMOCNICZE DLA UPUL (pomocnicze.py)
+   - _dopisz_wydz_pol_do_lasy(): wydzielenienia z WYDZ_POL kopiowane do
+     LASY_INNE_AFT z atrybutem TYP='PRYW' (obsługa lasów prywatnych)
+   - Kopiowanie GMINY_AFT.shp: jeśli w katalogu ODDZ istnieje plik GMIN*.shp,
+     jest kopiowany do folderu docelowego
+
+7. POŁĄCZ WARSTWY (dane_przetwarzanie.py) — przepisana logika
+   - Dwa tryby pracy, wykrywane automatycznie na podstawie struktury folderów:
+     * Tryb GMINY: folder gminy → podfoldery obrębów → SHP/ → scala wg stałej
+       listy warstw; pyta czy dołączyć pliki z folderu OGOLNE
+     * Tryb REGIONU: folder z gminami → SHP/ każdej gminy → dialog z
+       checkboxami do wyboru warstw → scala do SHP_razem/
+   - Kryterium autowykrywania: tryb GMINY gdy istnieje folder OGOLNE i
+     WYDZ_POL.shp/WYDZ_OPS.shp w SHP/ któregoś obrębu
+
+8. USTAW MAPĘ (ustaw_mape.py)
+   - zmien_meta_data(): nowa metoda pyta o datę "stan na" przed aktualizacją
+   - zmien_meta(): obsługuje teraz wszystkie typy map (nie tylko z listy
+     MAPA_PPOZ, MAPA_FOCHRONY itd.) — przy nieznanym typie szuka bazy przez
+     warstwę ODDZ zamiast zwracać błąd
+
+9. GENERUJ SULMN (shp_generuj_sulmn.py) — 15.06.2026
+   - Drobna aktualizacja w metodzie przygotujOpodst()
+
+==============================
