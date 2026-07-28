@@ -341,6 +341,7 @@ def _scal_liste(pliki, nazwa, out, iface):
             {
                 'LAYERS': pliki,
                 'CRS': None,
+                'ADD_SOURCE_FIELDS': False,
                 'OUTPUT': os.path.join(out, nazwa + ".shp"),
             }
         )

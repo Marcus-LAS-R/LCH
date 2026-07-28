@@ -291,7 +291,8 @@ class Lch:
         self.a_lin_oddz.triggered.connect(self.generuj_lin_oddz)
 
         self.a_gen_klu_lft = QAction(
-            QIcon(None), 'Generuj KLU_LFT', self.iface.mainWindow())
+            QIcon(os.path.join(self.plugin_dir, 'ico', 'gen_klu_lft.png')),
+            'Generuj KLU_LFT', self.iface.mainWindow())
         self.a_gen_klu_lft.triggered.connect(self.generuj_klu_lft)
 
         self.a_dopisz_kody = QAction(
@@ -365,12 +366,12 @@ class Lch:
         self.menu_pom.addAction(self.a_przygotuj_fochr)
 
         self.menu.addAction(self.a_struk)
+        self.menu.addAction(self.a_gen_klu_lft)
         self.menu.addSeparator()
         self.menu.addAction(self.a_dopisz_kody)
         self.menu.addSeparator()
         self.menu.addAction(self.a_gen_kas)
         self.menu.addAction(self.a_lin_oddz)
-        self.menu.addAction(self.a_gen_klu_lft)
         self.menu.addAction(self.a_gen_etyk)
         self.menu.addAction(self.a_mapram)
         self.menu.addMenu(self.menu_pom)
@@ -397,6 +398,7 @@ class Lch:
 
         # TOOLBAR ----------
         self.toolbar.addAction(self.a_struk)
+        self.toolbar.addAction(self.a_gen_klu_lft)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.a_dopisz_kody)
         self.toolbar.addAction(self.a_gen_kas)

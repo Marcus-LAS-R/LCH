@@ -1,6 +1,33 @@
 CHANGELOG — Wtyczka LCH LAS-R
 ==============================
 
+Wersja 2.0b — zmiany wprowadzone 28.07.2026
+------------------------------------------------
+
+### Poprawki i ulepszenia
+
+1. GENERUJ KLU_LFT — wygodniejszy dostęp
+   - Pozycja menu przeniesiona wyżej — zaraz pod "Generuj strukturę katalogów"
+   - Nowa ikona na pasku narzędzi
+
+2. POMOCNICZE DLA UPUL (pomocnicze.py)
+   - Plik OBREBY_AFT.shp jest teraz tworzony z warstwy OBR (wcześniej błędnie
+     kopiowana była warstwa ODDZ)
+
+3. POŁĄCZ WARSTWY (dane_przetwarzanie.py)
+   - Scalone warstwy nie mają już doklejanych zbędnych pól "layer" i "path"
+     ze ścieżką/nazwą pliku źródłowego
+
+4. EKSPORTUJ MAPY (KATALOG) (eksportuj_mapy_katalog.py)
+   - Po eksporcie PDF wtyczka sama sprząta zbędne pliki .pdf.aux.xml, które
+     zostawały w folderze PLOTOWANIE
+
+5. GENERUJ SULMN (shp_generuj_sulmn.py)
+   - Poprawka przy generowaniu UZYTKI.shp — usunięte zbędne pole ID z listy
+     pól scalania
+
+==============================
+
 Wersja 2.0a — zmiany wprowadzone 15–26.06.2026
 ------------------------------------------------
 

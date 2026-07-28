@@ -120,13 +120,18 @@ class WarstwyPomocnicze():
 
         self._dopisz_wydz_pol_do_lasy()
 
-        crs = QgsCoordinateReferenceSystem("epsg:2180")
-        QgsVectorFileWriter.writeAsVectorFormat(
-            self.oddz,
-            os.path.join(self.kat, "OBREBY_AFT.shp"),
-            "UTF-8",
-            crs,
-            "ESRI Shapefile")
+        obr_lista = QgsProject.instance().mapLayersByName('OBR')
+        if len(obr_lista) == 1 and obr_lista[0].isValid():
+            crs = QgsCoordinateReferenceSystem("epsg:2180")
+            QgsVectorFileWriter.writeAsVectorFormat(
+                obr_lista[0],
+                os.path.join(self.kat, "OBREBY_AFT.shp"),
+                "UTF-8",
+                crs,
+                "ESRI Shapefile")
+        else:
+            self.iface.messageBar().pushMessage(
+                'BŁĄD', 'Nie znalazłem warstwy OBR w TOC!', Qgis.Critical)
 
         gmin_pliki = glob.glob(os.path.join(self.oddz_kat, 'GMIN*.shp'))
         if gmin_pliki:

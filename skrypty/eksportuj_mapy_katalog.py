@@ -7,6 +7,13 @@ from PyQt5.QtWidgets import (QFileDialog, QDialog, QDialogButtonBox,
 PROG_PASA_MM = 420
 
 
+def _usun_aux(pdf_path):
+    """Usuwa sidecar .aux.xml, ktory GDAL dopisuje przy eksporcie PDF."""
+    aux_path = pdf_path + '.aux.xml'
+    if os.path.isfile(aux_path):
+        os.remove(aux_path)
+
+
 class _EksportDialog(QDialog):
     def __init__(self, parent):
         super().__init__(parent)
@@ -105,16 +112,18 @@ def eksportuj_mapy(iface):
 
         exporter = QgsLayoutExporter(lay)
         if lay.atlas().enabled():
+            pdf_path = os.path.join(plot_folder, nazwa + '.pdf')
             pdf_sett = QgsLayoutExporter(
                 lay.atlas().layout()).PdfExportSettings()
             res = exporter.exportToPdf(
                 lay.atlas(),
-                os.path.join(plot_folder, nazwa + '.pdf'),
+                pdf_path,
                 settings=pdf_sett)
             if res != QgsLayoutExporter.Success:
                 bledne += 1
             else:
                 wykonane += 1
+                _usun_aux(pdf_path)
 
         else:
             pdf_path = os.path.join(plot_folder, nazwa + '.pdf')
@@ -125,6 +134,7 @@ def eksportuj_mapy(iface):
                 bledne += 1
             else:
                 wykonane += 1
+                _usun_aux(pdf_path)
                 if min(szer_mm, wys_mm) < PROG_PASA_MM:
                     pasy.append((nazwa, pdf_path, szer_mm, wys_mm))
 
