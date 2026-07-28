@@ -643,7 +643,7 @@ class GenerujSulmn(object):
             "native:dissolve",
             {
                 'INPUT':self.opodst,
-                'FIELD': ['ID','ADR_ADM','NR_EW','NR_KONT'],
+                'FIELD': ['ADR_ADM','NR_EW','NR_KONT'],
                 'SEPARATE_DISJOINT': False,
                 'OUTPUT': os.path.join(self.katS, "UZYTKI.shp"),
             })
