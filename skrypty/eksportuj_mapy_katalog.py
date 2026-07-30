@@ -101,51 +101,51 @@ def eksportuj_mapy(iface):
         if not layouts:
             pomiete.append(os.path.basename(projectPath))
             continue
-        lay = layouts[0]
-        lay.renderContext().setDpi(500)
-        nazwa = projectPath.split(os.sep)[-2] + '_' + lay.name()
-        QgsMessageLog.logMessage(nazwa, 'LCH', Qgis.Info)
-        pg_coll = lay.pageCollection()
-        wys_mm = pg_coll.maximumPageSize().height()
-        szer_mm = pg_coll.maximumPageWidth()
-        wymiary.append([nazwa, str(wys_mm), str(szer_mm)])
+        for lay in layouts:
+            lay.renderContext().setDpi(500)
+            nazwa = projectPath.split(os.sep)[-2] + '_' + lay.name()
+            QgsMessageLog.logMessage(nazwa, 'LCH', Qgis.Info)
+            pg_coll = lay.pageCollection()
+            wys_mm = pg_coll.maximumPageSize().height()
+            szer_mm = pg_coll.maximumPageWidth()
+            wymiary.append([nazwa, str(wys_mm), str(szer_mm)])
 
-        exporter = QgsLayoutExporter(lay)
-        if lay.atlas().enabled():
-            pdf_path = os.path.join(plot_folder, nazwa + '.pdf')
-            pdf_sett = QgsLayoutExporter(
-                lay.atlas().layout()).PdfExportSettings()
-            res = exporter.exportToPdf(
-                lay.atlas(),
-                pdf_path,
-                settings=pdf_sett)
-            if res != QgsLayoutExporter.Success:
-                bledne += 1
-            else:
-                wykonane += 1
-                _usun_aux(pdf_path)
-
-        else:
-            pdf_path = os.path.join(plot_folder, nazwa + '.pdf')
-            res = exporter.exportToPdf(
-                pdf_path,
-                QgsLayoutExporter.PdfExportSettings())
-            if res != QgsLayoutExporter.Success:
-                bledne += 1
-            else:
-                wykonane += 1
-                _usun_aux(pdf_path)
-                if min(szer_mm, wys_mm) < PROG_PASA_MM:
-                    pasy.append((nazwa, pdf_path, szer_mm, wys_mm))
-
-            if eksportuj_tiff and 'LEG' != nazwa[-3:]:
-                res = exporter.exportToImage(
-                    os.path.join(plot_folder, nazwa + '.tif'),
-                    QgsLayoutExporter.ImageExportSettings())
+            exporter = QgsLayoutExporter(lay)
+            if lay.atlas().enabled():
+                pdf_path = os.path.join(plot_folder, nazwa + '.pdf')
+                pdf_sett = QgsLayoutExporter(
+                    lay.atlas().layout()).PdfExportSettings()
+                res = exporter.exportToPdf(
+                    lay.atlas(),
+                    pdf_path,
+                    settings=pdf_sett)
                 if res != QgsLayoutExporter.Success:
                     bledne += 1
                 else:
                     wykonane += 1
+                    _usun_aux(pdf_path)
+
+            else:
+                pdf_path = os.path.join(plot_folder, nazwa + '.pdf')
+                res = exporter.exportToPdf(
+                    pdf_path,
+                    QgsLayoutExporter.PdfExportSettings())
+                if res != QgsLayoutExporter.Success:
+                    bledne += 1
+                else:
+                    wykonane += 1
+                    _usun_aux(pdf_path)
+                    if min(szer_mm, wys_mm) < PROG_PASA_MM:
+                        pasy.append((nazwa, pdf_path, szer_mm, wys_mm))
+
+                if eksportuj_tiff and 'LEG' != nazwa[-3:]:
+                    res = exporter.exportToImage(
+                        os.path.join(plot_folder, nazwa + '.tif'),
+                        QgsLayoutExporter.ImageExportSettings())
+                    if res != QgsLayoutExporter.Success:
+                        bledne += 1
+                    else:
+                        wykonane += 1
 
     fwys = open(os.path.join(plot_folder, 'wymiary.txt'), 'w')
     fwys.write('\n'.join(['\t'.join(x) for x in wymiary]))
