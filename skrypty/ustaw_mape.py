@@ -1,10 +1,52 @@
+import os
 import platform
+import re
 from datetime import datetime
 from qgis.core import QgsProject, Qgis, QgsLayoutSize, QgsUnitTypes, \
     QgsRectangle, QgsLayoutItemMap, QgsLayoutPoint, QgsLayoutItemLabel
 from lasr.skrypty.baza_wrapper import Baza, znajdz_baze_do_wydz
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QInputDialog
+
+_ARKUSZ_RE = re.compile(r'^A(\d+)$')
+
+
+def dopisz_ark_do_nazwy(sciezka):
+    '''Dopisuje przyrostek _ARK do nazwy pliku projektu (przed rozszerzeniem),
+    o ile jeszcze go nie ma.'''
+    folder, plik = os.path.split(sciezka)
+    nazwa, ext = os.path.splitext(plik)
+    if nazwa.endswith('_ARK'):
+        return sciezka
+    return os.path.join(folder, nazwa + '_ARK' + ext)
+
+
+def zapisz_z_przyrostkiem_ark(iface, m):
+    '''Jesli ostatnie wywolanie UstawMape.przesun_elem() wygenerowalo
+    arkusze, dopisuje do nazwy pliku biezacego projektu przyrostek _ARK
+    i zapisuje projekt pod nowa nazwa (usuwajac stary plik).'''
+    if not m.arkusze:
+        return
+
+    proj = QgsProject.instance()
+    stara_sciezka = proj.fileName()
+    if not stara_sciezka:
+        return
+
+    nowa_sciezka = dopisz_ark_do_nazwy(stara_sciezka)
+    if nowa_sciezka == stara_sciezka:
+        return
+
+    proj.write(nowa_sciezka)
+    if os.path.isfile(stara_sciezka):
+        os.remove(stara_sciezka)
+
+    iface.messageBar().pushMessage(
+        'OK',
+        f'Wykryto {len(m.arkusze)} arkuszy — projekt zapisano jako '
+        f'{os.path.basename(nowa_sciezka)}',
+        Qgis.Success
+    )
 
 
 class UstawMape():
@@ -45,53 +87,51 @@ class UstawMape():
         self.obr = feat['COMMUNITY']
         return True
 
-    def przesun_elem(self):  # noqa
-        '''Przesuwa elementy mapy i generuj wyniesienia na podstawie warstwy
-        MapRam, niezależnie od rodzaju mapy'''
+    def _ramka_glowna(self, sr):
+        '''Zwraca rekord ramki głównej mapy ze słownika sr (pole RAMKA='M',
+        albo starsze 'Mr' dla zgodnosci wstecznej). Zwraca None i wyswietla
+        czytelny blad w messageBar, jesli w MapRamie brakuje obu.'''
+        for klucz in ('M', 'Mr'):
+            if klucz in sr:
+                return sr[klucz]
 
-        # slownik z rozmiarami mapy i wydzielen
-        # sl[''] = [xpocz, ypocz, szer, wys, xmapa, ymapa]
-        sr = {}
-        space = 0  # poprawka na przesunicie layoutu
-        if self.mr.featureCount() == 0:
-            self.iface.messageBar().pushMessage('Error',
-                                                u'Brak poligonów w MapRamie',
-                                                level=Qgis.Critical)
-            return False
+        self.iface.messageBar().pushMessage(
+            'BŁĄD',
+            "Nie znaleziono ramki głównej mapy w warstwie MapRam "
+            "(brak obiektu z polem RAMKA='M')",
+            Qgis.Critical,
+            0
+        )
+        return None
 
-        for f in self.mr.getFeatures():
-            # zachowanie kompatybilnosci z poprzednia wersja z qgis2
-            try:
-                skala = f['skala']
-            except Exception:
-                skala = 5000
+    def _wykryj_arkusze(self, sr):
+        '''Zwraca posortowana liste (numer, klucz) dla poligonow-arkuszy
+        w MapRamie (pole RAMKA='A1', 'A2', ...).'''
+        arkusze = []
+        for klucz in sr:
+            dopasowanie = _ARKUSZ_RE.match(klucz)
+            if dopasowanie:
+                arkusze.append((int(dopasowanie.group(1)), klucz))
+        arkusze.sort()
+        return arkusze
 
-            bb = f.geometry().boundingBox()
-            sr[f['RAMKA']] = [
-                bb.xMinimum(),
-                bb.yMaximum(),
-                bb.xMaximum() - bb.xMinimum(),
-                bb.yMaximum() - bb.yMinimum(),
-                f['xpocz'],
-                f['ypocz'],
-                skala
-            ]
+    def _zastosuj_ramke(self, lay, srm, sr, pomin_klucze):
+        '''Ustawia rozmiar strony, ramki i widok GLOWNA layoutu `lay` na
+        podstawie rekordu ramki glownej `srm`, i dopisuje wyniesienia dla
+        pozostalych poligonow z MapRamu (pomijajac klucze z pomin_klucze,
+        czyli glowna ramke i pozostale arkusze)'''
 
-        pg_coll = self.lay.pageCollection()
+        pg_coll = lay.pageCollection()
         pg = pg_coll.page(0)
         wys_stara = pg_coll.maximumPageSize().height()
         szer_stara = pg_coll.maximumPageWidth()
 
-        try:
-            szer_nowa = (sr['M'][2] / (sr['M'][6]/1000)) + 10 + 10
-            wys_nowa = (sr['M'][3] / (sr['M'][6]/1000)) + 10 + 80 + 10
-        except:  # noqa
-            szer_nowa = (sr['Mr'][2] / (sr['Mr'][6]/1000)) + 10 + 10
-            wys_nowa = (sr['Mr'][3] / (sr['Mr'][6]/1000)) + 10 + 80 + 10
+        szer_nowa = (srm[2] / (srm[6]/1000)) + 10 + 10
+        wys_nowa = (srm[3] / (srm[6]/1000)) + 10 + 80 + 10
         pg.setPageSize(
             QgsLayoutSize(szer_nowa, wys_nowa, QgsUnitTypes.LayoutMillimeters)
         )
-        self.lay.refresh()
+        lay.refresh()
 
         poprx = szer_nowa - szer_stara
         popry = wys_nowa - wys_stara
@@ -103,29 +143,29 @@ class UstawMape():
                      'wykonawca', ]
 
         # przesun elementy w pionie
-        for it in self.lay.items():
+        for it in lay.items():
             try:
                 if it.id() not in wysPomin and len(it.id()) > 2:
-                    it.attemptMoveBy(0, popry+space)
+                    it.attemptMoveBy(0, popry)
                 if it.id() in szerPrzes and len(it.id()) > 2:
                     it.attemptMoveBy(poprx, 0)
             except:  # nopep8
                 pass
 
-        ramka = self.lay.itemById('ramka')
+        ramka = lay.itemById('ramka')
         ramka.attemptResize(
                 QgsLayoutSize(szer_nowa-10,
                               wys_nowa-10,
                               QgsUnitTypes.LayoutMillimeters)
         )
 
-        ramka = self.lay.itemById('ramkaD')
+        ramka = lay.itemById('ramkaD')
         ramka.attemptResize(
             QgsLayoutSize(szer_nowa-10, 80, QgsUnitTypes.LayoutMillimeters)
         )
 
         # ustaw mapke pogladowa o ile taka znajduje sie na mapie
-        it = self.lay.itemById('POGLAD')
+        it = lay.itemById('POGLAD')
         if it is not None:
             oe = self.oddz.extent()
             szer = oe.width()
@@ -155,11 +195,7 @@ class UstawMape():
             # it.setItemPosition(it.x(), popry+it.y(), 68.9, 78.8)
 
         # ustaw główne okno mapy wraz ze skalą zapisana w mapramie
-        it = self.lay.itemById('GLOWNA')
-        try:
-            srm = sr['M']
-        except:  # noqa
-            srm = sr['Mr']
+        it = lay.itemById('GLOWNA')
 
         if it is not None:
             it.attemptResize(
@@ -175,13 +211,13 @@ class UstawMape():
             it.setScale(srm[6])
 
         # dodaj nowe wyniesienia do mapy o ile takie znajduja sie w mapramie
-        for w in [k for k in sorted(sr.keys()) if k not in ["Mr", 'M']]:
+        for w in [k for k in sorted(sr.keys()) if k not in pomin_klucze]:
             wyn = sr[w]
-            wyn_it = QgsLayoutItemMap(self.lay)
+            wyn_it = QgsLayoutItemMap(lay)
             wyn_it.attemptMove(
                 QgsLayoutPoint(
-                    int(10+(wyn[4]-srm[0])/(srm[6]/1000))+space,
-                    int(10+(srm[1]-wyn[5])/(srm[6]/1000))+space,
+                    int(10+(wyn[4]-srm[0])/(srm[6]/1000)),
+                    int(10+(srm[1]-wyn[5])/(srm[6]/1000)),
                     QgsUnitTypes.LayoutMillimeters
                 )
             )
@@ -201,9 +237,9 @@ class UstawMape():
             wyn_it.setId('wyn'+w+'_Map')
             wyn_it.setBackgroundColor(QColor('white'))
             wyn_it.setFrameEnabled(True)
-            self.lay.addItem(wyn_it)
+            lay.addItem(wyn_it)
 
-            wLab = QgsLayoutItemLabel(self.lay)
+            wLab = QgsLayoutItemLabel(lay)
             wLab.setText("Wyniesienie "+w)
             wLab.setFont(QFont('Arial', 12, QFont.Bold))
 
@@ -217,7 +253,87 @@ class UstawMape():
                 QgsLayoutSize(50, 8, QgsUnitTypes.LayoutMillimeters)
             )
             wLab.setId('wyn'+w+'_Lab')
-            self.lay.addItem(wLab)
+            lay.addItem(wLab)
+
+    def przesun_elem(self):  # noqa
+        '''Przesuwa elementy mapy i generuje wyniesienia/arkusze na
+        podstawie warstwy MapRam, niezależnie od rodzaju mapy.
+
+        Jeżeli w MapRamie znajdują się poligony-arkusze (RAMKA='A1',
+        'A2', ...), zamiast ustawiać bieżący layout, klonuje go po jednym
+        razie na arkusz (nazwa layoutu + "_ARK_<n>"), ustawia każdy klon
+        osobno i usuwa oryginalny (bazowy) layout — wynikowe layouty
+        trafiają do self.layouty_do_eksportu.'''
+
+        # slownik z rozmiarami mapy i wydzielen
+        # sl[''] = [xpocz, ypocz, szer, wys, xmapa, ymapa]
+        sr = {}
+        self.arkusze = []
+        self.layouty_do_eksportu = []
+        if self.mr.featureCount() == 0:
+            self.iface.messageBar().pushMessage('Error',
+                                                u'Brak poligonów w MapRamie',
+                                                level=Qgis.Critical)
+            return False
+
+        for f in self.mr.getFeatures():
+            # zachowanie kompatybilnosci z poprzednia wersja z qgis2
+            try:
+                skala = f['skala']
+            except Exception:
+                skala = 5000
+
+            bb = f.geometry().boundingBox()
+            sr[f['RAMKA']] = [
+                bb.xMinimum(),
+                bb.yMaximum(),
+                bb.xMaximum() - bb.xMinimum(),
+                bb.yMaximum() - bb.yMinimum(),
+                f['xpocz'],
+                f['ypocz'],
+                skala
+            ]
+
+        self.arkusze = self._wykryj_arkusze(sr)
+
+        if not self.arkusze:
+            srm = self._ramka_glowna(sr)
+            if srm is None:
+                return False
+
+            etykieta = self.lay.itemById('zm-obreb-arkusz')
+            if etykieta is not None:
+                etykieta.setText('')
+
+            self._zastosuj_ramke(self.lay, srm, sr, {'M', 'Mr'})
+            self.layouty_do_eksportu = [self.lay]
+            return True
+
+        # tryb arkuszy: klonujemy layout po jednym razie na kazdy poligon
+        # A1, A2, ... i usuwamy oryginalny (bazowy) layout
+        nazwa_bazowa = self.lay.name()
+        pomin_klucze = {klucz for _, klucz in self.arkusze} | {'M', 'Mr'}
+
+        for numer, klucz in self.arkusze:
+            nazwa_ark = f'{nazwa_bazowa}_ARK_{numer}'
+            istniejacy = self.mn.layoutByName(nazwa_ark)
+            if istniejacy is not None:
+                self.mn.removeLayout(istniejacy)
+
+            klon = self.lay.clone()
+            klon.setName(nazwa_ark)
+            self.mn.addLayout(klon)
+
+            etykieta = klon.itemById('zm-obreb-arkusz')
+            if etykieta is not None:
+                etykieta.setText(f'Arkusz {numer}')
+
+            self._zastosuj_ramke(klon, sr[klucz], sr, pomin_klucze)
+            self.layouty_do_eksportu.append(klon)
+
+        self.mn.removeLayout(self.lay)
+        self.lay = self.layouty_do_eksportu[0]
+        return True
 
     def znajdz_bazy(self):
         '''Metoda szuka bazy danych w zalezności od nazwy layoutu w projekcie

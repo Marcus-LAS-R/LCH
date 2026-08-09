@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import QFileDialog, QInputDialog
 
 from qgis.core import QgsProject, Qgis, QgsLayoutExporter
 
-from .ustaw_mape import UstawMape
+from .ustaw_mape import UstawMape, dopisz_ark_do_nazwy
 from .ustaw_mape import ustaw_leg as ustaw_leg_poj
 
 
@@ -44,14 +44,26 @@ def ustaw_mapy(iface):
             if u.znajdz_bazy():
                 u.pobierz_meta()
                 u.zmien_meta(stan_na)
-                u.przesun_elem()
-                proj.write()
+                if not u.przesun_elem():
+                    bledne += 1
+                    continue
+
+                zapisz_sciezka = projectPath
+                if u.arkusze:
+                    zapisz_sciezka = dopisz_ark_do_nazwy(projectPath)
+
+                proj.write(zapisz_sciezka)
+                if zapisz_sciezka != projectPath and os.path.isfile(projectPath):
+                    os.remove(projectPath)
                 wykonane += 1
 
-                nazwa = projectPath.split(os.sep)[-2] + '_' + u.lay.name()
-                exporter = QgsLayoutExporter(u.lay)
-                exporter.exportToImage(os.path.join(plot_folder, nazwa+'.jpg'),
-                                       QgsLayoutExporter.ImageExportSettings())
+                folder_nazwa = projectPath.split(os.sep)[-2]
+                for lay in u.layouty_do_eksportu:
+                    nazwa = folder_nazwa + '_' + lay.name()
+                    exporter = QgsLayoutExporter(lay)
+                    exporter.exportToImage(
+                        os.path.join(plot_folder, nazwa+'.jpg'),
+                        QgsLayoutExporter.ImageExportSettings())
 
             else:
                 bledne += 1

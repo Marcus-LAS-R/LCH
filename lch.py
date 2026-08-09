@@ -440,7 +440,9 @@ class Lch:
             return
         m.pobierz_meta()
         m.zmien_meta_data()
-        m.przesun_elem()
+        if not m.przesun_elem():
+            return
+        ustaw_mape.zapisz_z_przyrostkiem_ark(self.iface, m)
 
     def ustaw_legende(self):
         ustaw_mape.ustaw_leg(self.iface)
