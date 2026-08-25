@@ -248,11 +248,10 @@ class WarstwyPomocnicze():
             return
 
     def wytnij_maske(self):
-        processing.run("saga:difference", {
-                            'A': self.maska,
-                            'B': self.oddz,
-                            'SPLIT': False,
-                            'RESULT': os.path.join(
+        processing.run("native:difference", {
+                            'INPUT': self.maska,
+                            'OVERLAY': self.oddz,
+                            'OUTPUT': os.path.join(
                                 self.kat, 'MASKA_DIFF_AFT.shp'
                             )
             })
