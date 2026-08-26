@@ -9,22 +9,54 @@ from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import QVariant
 
 
-class SciezkaPomocnicze:
-    def __init__(self):
-        self.sciezka = ''
-        self.plik = os.path.join(os.path.dirname(__file__), 'pomocnicze.txt')
-        self.odczytaj_sciezke()
+class SciezkaKonfiguracyjna:
+    """Odczytuje/zapisuje pojedynczą ścieżkę pod danym kluczem we wspólnym
+    pliku sciezki_konfiguracyjne.txt (jedna linia na klucz: KLUCZ=ścieżka).
+    Jeśli zapisana ścieżka nie istnieje albo brakuje w niej któregoś z
+    wymaganych_podfolderow, traktuje to jak brak i pyta ponownie."""
 
-    def odczytaj_sciezke(self):
-        if os.path.isfile(self.plik):
-            self.sciezka = open(self.plik).readlines()[0].rstrip('\r\n \t')
-        else:
-            self.sciezka = QFileDialog.getExistingDirectory(
-                None,
-                "Katalog z warstwami pomocniczymi:",
-                "c:\\"
-            )
-            open(self.plik, 'w').write(self.sciezka)
+    PLIK = os.path.join(os.path.dirname(__file__),
+                         'sciezki_konfiguracyjne.txt')
+
+    def __init__(self, klucz, pytanie, wymagane_podfoldery=None):
+        self.klucz = klucz
+        self.pytanie = pytanie
+        self.wymagane_podfoldery = wymagane_podfoldery or []
+        self.sciezka = ''
+        self.wczytaj()
+
+    def _odczytaj_wszystkie(self):
+        wpisy = {}
+        if os.path.isfile(self.PLIK):
+            for linia in open(self.PLIK, encoding='utf-8'):
+                linia = linia.rstrip('\r\n')
+                if '=' in linia:
+                    k, _, v = linia.partition('=')
+                    wpisy[k] = v
+        return wpisy
+
+    def _zapisz_wszystkie(self, wpisy):
+        with open(self.PLIK, 'w', encoding='utf-8') as f:
+            for k, v in wpisy.items():
+                f.write(f'{k}={v}\n')
+
+    def _poprawna(self, sciezka):
+        if not sciezka or not os.path.isdir(sciezka):
+            return False
+        for pod in self.wymagane_podfoldery:
+            if not os.path.isdir(os.path.join(sciezka, pod)):
+                return False
+        return True
+
+    def wczytaj(self):
+        wpisy = self._odczytaj_wszystkie()
+        sciezka = wpisy.get(self.klucz, '')
+        if not self._poprawna(sciezka):
+            sciezka = QFileDialog.getExistingDirectory(
+                None, self.pytanie, "c:\\")
+            wpisy[self.klucz] = sciezka
+            self._zapisz_wszystkie(wpisy)
+        self.sciezka = sciezka
 
 
 class WarstwyPomocnicze():
@@ -44,14 +76,17 @@ class WarstwyPomocnicze():
         self.oddz_kat = ''
 
         if platform.system()[:3] == 'Win':
-            sc = SciezkaPomocnicze()
+            sc = SciezkaKonfiguracyjna(
+                'PODRECZNIK', 'Wskaż folder Podrecznik/Mapy',
+                wymagane_podfoldery=[
+                    'Szablony_map', 'logotypy_do_wgrywania', 'pomocnicze'])
             if sc.sciezka is False:
                 self.iface.messageBar().pushMessage(
                     'BŁĄD',
                     'Niepoprawna ścieżka do folderu z danymi pomocniczymi',
                     Qgis.Critical)
                 return
-            self.kat_dane = sc.sciezka
+            self.kat_dane = os.path.join(sc.sciezka, 'pomocnicze')
         else:
             self.kat_dane = '/home/pawel/upul/_dane'
 
@@ -120,18 +155,22 @@ class WarstwyPomocnicze():
 
         self._dopisz_wydz_pol_do_lasy()
 
-        obr_lista = QgsProject.instance().mapLayersByName('OBR')
-        if len(obr_lista) == 1 and obr_lista[0].isValid():
+        obr_pliki = glob.glob(os.path.join(self.oddz_kat, 'OBR*.shp'))
+        obr_lyr = QgsVectorLayer(obr_pliki[0], 'OBR', 'ogr') if obr_pliki \
+            else None
+
+        if obr_lyr is not None and obr_lyr.isValid():
             crs = QgsCoordinateReferenceSystem("epsg:2180")
             QgsVectorFileWriter.writeAsVectorFormat(
-                obr_lista[0],
+                obr_lyr,
                 os.path.join(self.kat, "OBREBY_AFT.shp"),
                 "UTF-8",
                 crs,
                 "ESRI Shapefile")
         else:
             self.iface.messageBar().pushMessage(
-                'BŁĄD', 'Nie znalazłem warstwy OBR w TOC!', Qgis.Critical)
+                'BŁĄD', 'Nie znalazłem pliku OBR w folderze SHP!',
+                Qgis.Critical)
 
         gmin_pliki = glob.glob(os.path.join(self.oddz_kat, 'GMIN*.shp'))
         if gmin_pliki:

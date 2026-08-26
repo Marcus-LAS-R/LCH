@@ -186,7 +186,7 @@ class Lch:
         # AKCJE -------------
         self.a_struk = QAction(
             QIcon(os.path.join(self.plugin_dir, 'ico', 'struk.png')),
-            'Generuj strukture katalogów',
+            'Generuj strukturę map',
             self.iface.mainWindow())
         self.a_struk.triggered.connect(self.generuj_strukture)
 
@@ -365,40 +365,43 @@ class Lch:
         self.menu_pom.addAction(self.a_przygotuj_ppoz)
         self.menu_pom.addAction(self.a_przygotuj_fochr)
 
+        self.menu_narzedzia = QMenu('Narzędziowe', self.menu)
+        self.menu_narzedzia.addAction(self.a_gen_klu_lft)
+        self.menu_narzedzia.addAction(self.a_polacz_warstwy)
+        self.menu_narzedzia.addAction(self.a_spisy_atl)
+        self.menu_narzedzia.addAction(self.a_gen_krzew)
+
+        self.menu_ustaw_pojedynczo = QMenu('Ustaw pojedynczo', self.menu)
+        self.menu_ustaw_pojedynczo.addAction(self.a_ustaw_mape)
+        self.menu_ustaw_pojedynczo.addAction(self.a_ustaw_leg)
+
         self.menu.addAction(self.a_struk)
-        self.menu.addAction(self.a_gen_klu_lft)
-        self.menu.addSeparator()
         self.menu.addAction(self.a_dopisz_kody)
-        self.menu.addSeparator()
         self.menu.addAction(self.a_gen_kas)
         self.menu.addAction(self.a_lin_oddz)
         self.menu.addAction(self.a_gen_etyk)
         self.menu.addAction(self.a_mapram)
         self.menu.addMenu(self.menu_pom)
-        self.menu.addSeparator()
         self.menu.addAction(self.a_podziel_obrebami)
-        self.menu.addAction(self.a_polacz_warstwy)
-        self.menu.addSeparator()
-        self.menu.addAction(self.a_ustaw_mape)
-        self.menu.addAction(self.a_ustaw_leg)
-        self.menu.addAction(self.a_ustaw_leg_k)
-        self.menu.addSeparator()
-        self.menu.addAction(self.a_spisy_atl)
         self.menu.addSeparator()
         self.menu.addAction(self.a_ustaw_mapy)
-        self.menu.addAction(self.a_uakt_meta)
+        self.menu.addAction(self.a_ustaw_leg_k)
+        self.menu.addMenu(self.menu_ustaw_pojedynczo)
+        self.menu.addSeparator()
         self.menu.addAction(self.a_eksportuj_mapy)
         self.menu.addAction(self.a_drukuj_mapy)
         self.menu.addSeparator()
+        self.menu.addAction(self.a_uakt_meta)
+        self.menu.addSeparator()
+        self.menu.addMenu(self.menu_narzedzia)
+        self.menu.addSeparator()
         self.menu.addAction(self.a_gen_sulmn)
         self.menu.addAction(self.a_spr_sulmn)
-        self.menu.addAction(self.a_gen_krzew)
         self.menu.addSeparator()
         self.menu.addAction(self.a_co_nowego)
 
         # TOOLBAR ----------
         self.toolbar.addAction(self.a_struk)
-        self.toolbar.addAction(self.a_gen_klu_lft)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.a_dopisz_kody)
         self.toolbar.addAction(self.a_gen_kas)
