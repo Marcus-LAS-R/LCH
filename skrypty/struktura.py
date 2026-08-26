@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
-import platform
-import glob
+from shutil import copytree
 from PyQt5.QtWidgets import QFileDialog
 from qgis.core import Qgis
 
@@ -31,60 +30,81 @@ def zamien(ciag):
 def stworz_drzewo(iface):
     S = ['EWID', 'SHP', ]
 
-    # opis gdzie sie laczymy
-    sciezka = QFileDialog.getExistingDirectory(
+    # wskaz baze taksatora
+    baza_plik, _ = QFileDialog.getOpenFileName(
         iface.mainWindow(),
-        "Katalog z bazami taksatora:",
-        # "c:/"
-        '/home/pawel/upul/temp/testy/'
+        "Wskaż bazę taksatora:",
+        '/home/pawel/upul/temp/testy/',
+        "Access MDB (*.mdb);;SQLite (*.sqlite)"
     )
-    if not os.path.isdir(sciezka):
+    if not os.path.isfile(baza_plik):
         iface.messageBar().pushMessage(
-            'BŁĄD', 'Niepoprawna ścieżka do folderu z bazami TPU',
+            'BŁĄD', 'Niepoprawna ścieżka do bazy taksatora',
             Qgis.Critical)
         return
 
-    if platform.system()[:3] == 'Win':
-        bazy = glob.glob(os.path.join(sciezka, '*.mdb'))
-    else:
-        bazy = glob.glob(os.path.join(sciezka, '*.sqlite'))
+    sciezka = os.path.dirname(baza_plik)
 
     sp = []
-    for baza_sc in bazy:
-        baza = Baza(baza_sc)
-        if not baza.polacz():
-            continue
+    baza = Baza(baza_plik)
+    if not baza.polacz():
+        iface.messageBar().pushMessage(
+            'BŁĄD', 'Nie udało się połączyć z bazą',
+            Qgis.Critical)
+        return
 
-        # RODZAJ POWIERZCHNI - ok
-        SQL = """
-        SELECT F_COMMUNITY.MUNICIPALITY_CD,
-            F_MUNICIPALITY.MUNICIPALITY_NAME,
-            F_COMMUNITY.COMMUNITY_CD,
-            F_COMMUNITY.COMMUNITY_NAME
-        FROM F_MUNICIPALITY
-        INNER JOIN F_COMMUNITY ON
-        (F_MUNICIPALITY.MUNICIPALITY_CD = F_COMMUNITY.MUNICIPALITY_CD)
-        AND (F_MUNICIPALITY.DISTRICT_CD = F_COMMUNITY.DISTRICT_CD)
-        AND (F_MUNICIPALITY.COUNTY_CD = F_COMMUNITY.COUNTY_CD);
-        """
-        spt = baza.pobierz(SQL)
-        if spt:
-            sp += spt
-        baza.zamknij()
+    # RODZAJ POWIERZCHNI - ok
+    SQL = """
+    SELECT F_COMMUNITY.MUNICIPALITY_CD,
+        F_MUNICIPALITY.MUNICIPALITY_NAME,
+        F_COMMUNITY.COMMUNITY_CD,
+        F_COMMUNITY.COMMUNITY_NAME
+    FROM F_MUNICIPALITY
+    INNER JOIN F_COMMUNITY ON
+    (F_MUNICIPALITY.MUNICIPALITY_CD = F_COMMUNITY.MUNICIPALITY_CD)
+    AND (F_MUNICIPALITY.DISTRICT_CD = F_COMMUNITY.DISTRICT_CD)
+    AND (F_MUNICIPALITY.COUNTY_CD = F_COMMUNITY.COUNTY_CD);
+    """
+    spt = baza.pobierz(SQL)
+    if spt:
+        sp += spt
+    baza.zamknij()
 
-    struktura = [[s[0]+"_"+zamien(s[1].upper()),
-                  s[2]+"_"+zamien(s[3].upper()), ]
+    struktura = [[s[0].strip()+"_"+zamien(s[1].strip().upper()),
+                  s[2].strip()+"_"+zamien(s[3].strip().upper()), ]
                  for s in sp]
-    folderPath_all = os.path.abspath(os.path.join(sciezka, ".."))
+
+    # katalog roboczy map - tworzony obok bazy, zamiast wymagac od
+    # uzytkownika recznego przygotowania kopii bazy/SHP w tym miejscu
+    mapy_root = os.path.join(sciezka, "_MAPY")
+    os.makedirs(mapy_root, exist_ok=True)
+
+    zrodlo_shp = os.path.join(sciezka, "SHP")
+    cel_shp = os.path.join(mapy_root, "SHP")
+    if os.path.isdir(zrodlo_shp) and not os.path.isdir(cel_shp):
+        copytree(zrodlo_shp, cel_shp)
+    elif not os.path.isdir(zrodlo_shp):
+        iface.messageBar().pushMessage(
+            'UWAGA',
+            'Nie znaleziono folderu SHP obok bazy - pomijam kopiowanie',
+            Qgis.Warning)
+
+    folderPath_all = sciezka
 
     for spis in struktura:
         if not os.path.exists(os.path.join(
                 folderPath_all, "PLOTOWANIE", spis[0])):
             os.makedirs(os.path.join(folderPath_all, "PLOTOWANIE", spis[0]))
-        if not os.path.exists(os.path.join(sciezka, spis[0], spis[1])):
-            os.makedirs(os.path.join(sciezka, spis[0], spis[1]))
-        if not os.path.exists(os.path.join(sciezka, spis[0], "OGOLNE")):
-            os.makedirs(os.path.join(sciezka, spis[0], 'OGOLNE'))
+        if not os.path.exists(os.path.join(mapy_root, spis[0], spis[1])):
+            os.makedirs(os.path.join(mapy_root, spis[0], spis[1]))
+        if not os.path.exists(os.path.join(mapy_root, spis[0], "OGOLNE")):
+            os.makedirs(os.path.join(mapy_root, spis[0], 'OGOLNE'))
         for si in S:
-            if not os.path.exists(os.path.join(sciezka, spis[0], spis[1], si)):
-                os.makedirs(os.path.join(sciezka, spis[0], spis[1], si))
+            if not os.path.exists(
+                    os.path.join(mapy_root, spis[0], spis[1], si)):
+                os.makedirs(os.path.join(mapy_root, spis[0], spis[1], si))
+
+    iface.messageBar().pushMessage(
+        'OK',
+        f'Wygenerowano strukturę dla {len(struktura)} obrębów w _MAPY',
+        Qgis.Success)

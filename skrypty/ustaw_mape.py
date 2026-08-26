@@ -52,12 +52,6 @@ def zapisz_z_przyrostkiem_ark(iface, m):
 class UstawMape():
     def __init__(self, iface):
         self.iface = iface
-        self.mapy = [
-            'MAPA_PPOZ',
-            'MAPA_FOCHRONY',
-            'MAPA_OGOLNA',
-            'MAPA_ZABIEGI',
-        ]
 
     def sprawdz_warstwy(self):
         '''Metoda sprawdza jaka mape ustawiam i na tej podstawie wyszukuje
@@ -366,17 +360,8 @@ class UstawMape():
 
         # a jezeli jakas mape dla gminy to baza powinna byc tylko jeden poziom
         # powyzej warstwy
-        # elif self.lay.name() in self.mapy:
         else:
             db_path = znajdz_baze_do_wydz(self.iface, self.oddz)
-
-            # self.iface.messageBar().pushMessage(
-                # 'BŁĄD',
-                # 'Nie rozpoznałem typu mapy, napewno masz kompatybilny layout?',
-                # Qgis.Critical,
-                # 10
-            # )
-            # return False
 
         if db_path is False:
             self.iface.messageBar().pushMessage(
@@ -462,7 +447,7 @@ class UstawMape():
                 if it is not None:
                     it.setText(self._nagl[self.gmi+self.obr][i])
 
-        elif self.lay.name().upper() in self.mapy:
+        else:
             # pobierz unikalene nazwy z bazy
             woj = ', '.join(list(set([x[0] for x in self._nagl.values()])))
             powi = ', '.join(list(set([x[1] for x in self._nagl.values()])))

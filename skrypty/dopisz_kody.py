@@ -431,7 +431,7 @@ class DopiszKody():
                 dop = {
                     fnm['TYP_POW']: self.isNone(self.sl[adr][0]),
                     fnm['STL']: self.isNone(self.sl[adr][1]),
-                    fnm['POW_WYDZ']: self.isNone(self.sl[adr][2], typ='i'),
+                    fnm['POW_WYDZ']: round(self.isNone(self.sl[adr][2], typ='i'), 4),
                     fnm['UDZIAL']: self.isNone(self.sl[adr][3]),
                     fnm['GAT']: self.isNone(gat),
                     fnm['WIEK']: self.isNone(self.sl[adr][5], typ='i'),

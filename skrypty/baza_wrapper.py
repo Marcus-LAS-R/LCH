@@ -10,6 +10,65 @@ from datetime import datetime
 from shutil import copyfile
 
 
+# Ponizsze dwie funkcje rozstrzygaly przypadek, w ktorym w jednym katalogu
+# lezalo kilka baz (kilka gmin naraz) - otwieraly kazda i sprawdzaly, czy
+# jej MUNICIPALITY_CD/COMMUNITY_CD pasuje do nazwy folderu (format
+# 'KOD_NAZWA') na sciezce do warstwy. Od kiedy struktura.py przyjmuje
+# wylacznie jedna, wskazana przez uzytkownika baze, ten przypadek nie
+# powinien wystapic - kod zostawiony (wylaczony) na wypadek powrotu do
+# obslugi wielu baz naraz.
+#
+# def _kody_gminy_obrebu(baza_path):
+#     """Zwraca liste par (MUNICIPALITY_CD, COMMUNITY_CD) zapisanych w
+#     podanej bazie, albo pusta liste jezeli nie udalo sie
+#     polaczyc/odczytac."""
+#     b = Baza(baza_path)
+#     if not b.polacz():
+#         return []
+#     try:
+#         kody = b.pobierz("""
+#             SELECT F_COMMUNITY.MUNICIPALITY_CD, F_COMMUNITY.COMMUNITY_CD
+#             FROM F_MUNICIPALITY INNER JOIN F_COMMUNITY ON
+#             (F_MUNICIPALITY.MUNICIPALITY_CD = F_COMMUNITY.MUNICIPALITY_CD)
+#             AND (F_MUNICIPALITY.DISTRICT_CD = F_COMMUNITY.DISTRICT_CD)
+#             AND (F_MUNICIPALITY.COUNTY_CD = F_COMMUNITY.COUNTY_CD);
+#         """)
+#     finally:
+#         b.zamknij()
+#     return kody or []
+#
+#
+# def _wybierz_baze_po_kodzie(kandydaci, folder_start, folder_koniec):
+#     """Gdy w jednym katalogu lezy kilka baz (kilka gmin naraz), wybiera
+#     te, ktorej kod gminy lub obrebu odpowiada nazwie ktoregos z folderow
+#     na sciezce miedzy folder_start a folder_koniec (wlacznie)."""
+#     kody_folderow = set()
+#     p = os.path.abspath(folder_start)
+#     koniec = os.path.abspath(folder_koniec)
+#     while True:
+#         nazwa = os.path.basename(p)
+#         prefiks = nazwa.split('_', 1)[0]
+#         if prefiks:
+#             kody_folderow.add(prefiks)
+#         if p == koniec:
+#             break
+#         nadrzedny = os.path.dirname(p)
+#         if nadrzedny == p:
+#             break
+#         p = nadrzedny
+#
+#     trafienia = []
+#     for kandydat in kandydaci:
+#         for gmi_cd, obr_cd in _kody_gminy_obrebu(kandydat):
+#             if gmi_cd in kody_folderow or obr_cd in kody_folderow:
+#                 trafienia.append(kandydat)
+#                 break
+#
+#     if len(trafienia) == 1:
+#         return trafienia[0]
+#     return False
+
+
 def znajdz_baze_do_wydz(iface, wydzlyr=False):
     if wydzlyr is not False:
         wydz = wydzlyr
@@ -22,20 +81,24 @@ def znajdz_baze_do_wydz(iface, wydzlyr=False):
         wydz_sc = wydz.dataProvider().dataSourceUri().split("|")[0]
         kat = os.path.dirname(wydz_sc)
 
-        if wydz.name() in ['WYDZ', 'ODDZ']:
-            poziom = '..'
-        else:
-            # poziom = '../..'
-            poziom = os.sep.join(['..', '..'])
-        print(kat, poziom)
+        wzorzec = '*.mdb' if platform.system()[:3] == 'Win' else '*.sqlite'
 
         try:
-            if platform.system()[:3] == 'Win':
-                bTemp = glob.glob(os.path.abspath(
-                    os.path.join(kat, poziom, "*.mdb")))
-            else:
-                bTemp = glob.glob(os.path.abspath(
-                    os.path.join(kat, poziom, "*.sqlite")))
+            szukany = os.path.abspath(kat)
+            korzen = os.path.abspath(os.sep)
+            znaleziona = []
+            while True:
+                kandydaci = glob.glob(os.path.join(szukany, wzorzec))
+                if len(kandydaci) == 1:
+                    znaleziona = kandydaci
+                    break
+                if szukany == korzen:
+                    break
+                nadrzedny = os.path.dirname(szukany)
+                if nadrzedny == szukany:
+                    break
+                szukany = nadrzedny
+            bTemp = znaleziona
         except:  # nopep8
             iface.messageBar().pushMessage(
                 'BŁĄD',
