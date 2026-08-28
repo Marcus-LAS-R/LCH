@@ -202,6 +202,12 @@ class WarstwyPomocnicze():
             self.oddz_kat)
 
     def przygotuj_maske(self):
+        maska_path = os.path.join(self.kat, "MASKA_AFT.shp")
+
+        if os.path.isfile(maska_path):
+            self.maska = QgsVectorLayer(maska_path, "MASKA_AFT", "ogr")
+            return
+
         ext = self.oddz.extent()
         xmin = ext.xMinimum() - 2000
         xmax = ext.xMaximum() + 2000
@@ -229,15 +235,11 @@ class WarstwyPomocnicze():
         # zapisz maske na dysku, moze bedzie potrzebna
         crs = QgsCoordinateReferenceSystem("epsg:2180")
         QgsVectorFileWriter.writeAsVectorFormat(self.maska,
-                                                os.path.join(self.kat,
-                                                             "MASKA_AFT.shp"),
+                                                maska_path,
                                                 "UTF-8",
                                                 crs,
                                                 "ESRI Shapefile")
-        self.maska = QgsVectorLayer(os.path.join(self.kat, "MASKA_AFT.shp"),
-                                    "MASKA_AFT",
-                                    "ogr")
-        QgsProject.instance().addMapLayer(self.maska)
+        self.maska = QgsVectorLayer(maska_path, "MASKA_AFT", "ogr")
 
     # @sprawdz_maske
     def przetnij_warstwe(self, war):
@@ -253,9 +255,6 @@ class WarstwyPomocnicze():
                 ext = self.maska.extent()
                 req = QgsFeatureRequest().setFilterRect(ext)
                 feats = [f for f in warstwa.getFeatures(req)]
-
-                if len(feats) == 0:
-                    return
 
                 geom_type = QgsWkbTypes.geometryType(warstwa.wkbType())
                 if geom_type == QgsWkbTypes.PointGeometry:

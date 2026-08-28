@@ -77,15 +77,47 @@ def eksportuj_mapy(iface):
     eksportuj_tiff = dlg.eksportuj_tiff
     paruj_pasy = dlg.paruj_pasy
 
-    plot_folder = os.path.abspath(
+    # PLOTOWANIE/<gmina> - folder gminy jest juz przygotowany przez
+    # "Generuj strukture map" (struktura.py), gmina = nazwa katalogu
+    # wskazanego w dialogu jako "Katalog projektow"
+    plot_root = os.path.abspath(
         os.path.join(projects_folder, '..', '..', 'PLOTOWANIE'))
-    if not os.path.exists(plot_folder):
-        os.makedirs(plot_folder)
+    gmina = os.path.basename(os.path.normpath(projects_folder))
+    gmina_folder = os.path.join(plot_root, gmina)
+    if not os.path.exists(gmina_folder):
+        os.makedirs(gmina_folder)
 
     projectPaths = []
     for root, dirs, files in os.walk(projects_folder):
         projectPaths += [
             os.path.join(root, f) for f in files if f[-3:] in ['qgs', 'qgz']]
+
+    proj = QgsProject.instance()
+
+    # najpierw sprawdz, czy wsrod projektow wystepuja oba typy layoutow
+    # (mapa pogladowa i atlas) - jesli tak, eksport rozbijamy na podfoldery
+    # Mapy/Atlasy w folderze gminy, w przeciwnym razie piszemy wprost do
+    # folderu gminy
+    ma_atlas = False
+    ma_mapy = False
+    for projectPath in sorted(projectPaths):
+        proj.read(projectPath)
+        for lay in QgsProject.instance().layoutManager().layouts():
+            if lay.atlas().enabled():
+                ma_atlas = True
+            else:
+                ma_mapy = True
+
+    if ma_atlas and ma_mapy:
+        folder_mapy = os.path.join(gmina_folder, 'Mapy')
+        folder_atlasy = os.path.join(gmina_folder, 'Atlasy')
+        if not os.path.exists(folder_mapy):
+            os.makedirs(folder_mapy)
+        if not os.path.exists(folder_atlasy):
+            os.makedirs(folder_atlasy)
+    else:
+        folder_mapy = gmina_folder
+        folder_atlasy = gmina_folder
 
     wykonane = 0
     bledne = 0
@@ -93,7 +125,6 @@ def eksportuj_mapy(iface):
     pasy = []  # (nazwa, pdf_path, width_mm, height_mm) — single-page, nie-atlas
 
     iface.mapCanvas().setRenderFlag(False)
-    proj = QgsProject.instance()
     wymiary = [['nazwa', 'wys', 'szer']]
     for projectPath in sorted(projectPaths):
         proj.read(projectPath)
@@ -101,6 +132,7 @@ def eksportuj_mapy(iface):
         if not layouts:
             pomiete.append(os.path.basename(projectPath))
             continue
+
         for lay in layouts:
             lay.renderContext().setDpi(500)
             nazwa = projectPath.split(os.sep)[-2] + '_' + lay.name()
@@ -112,7 +144,7 @@ def eksportuj_mapy(iface):
 
             exporter = QgsLayoutExporter(lay)
             if lay.atlas().enabled():
-                pdf_path = os.path.join(plot_folder, nazwa + '.pdf')
+                pdf_path = os.path.join(folder_atlasy, nazwa + '.pdf')
                 pdf_sett = QgsLayoutExporter(
                     lay.atlas().layout()).PdfExportSettings()
                 res = exporter.exportToPdf(
@@ -126,7 +158,7 @@ def eksportuj_mapy(iface):
                     _usun_aux(pdf_path)
 
             else:
-                pdf_path = os.path.join(plot_folder, nazwa + '.pdf')
+                pdf_path = os.path.join(folder_mapy, nazwa + '.pdf')
                 res = exporter.exportToPdf(
                     pdf_path,
                     QgsLayoutExporter.PdfExportSettings())
@@ -140,19 +172,19 @@ def eksportuj_mapy(iface):
 
                 if eksportuj_tiff and 'LEG' != nazwa[-3:]:
                     res = exporter.exportToImage(
-                        os.path.join(plot_folder, nazwa + '.tif'),
+                        os.path.join(folder_mapy, nazwa + '.tif'),
                         QgsLayoutExporter.ImageExportSettings())
                     if res != QgsLayoutExporter.Success:
                         bledne += 1
                     else:
                         wykonane += 1
 
-    fwys = open(os.path.join(plot_folder, 'wymiary.txt'), 'w')
+    fwys = open(os.path.join(gmina_folder, 'wymiary.txt'), 'w')
     fwys.write('\n'.join(['\t'.join(x) for x in wymiary]))
     fwys.close()
 
     if paruj_pasy and pasy:
-        _polacz_pasy(pasy, plot_folder)
+        _polacz_pasy(pasy, folder_mapy)
 
     iface.mapCanvas().setRenderFlag(True)
     if pomiete:
@@ -201,7 +233,7 @@ def _dubluj(m, plot_folder):
         new_page.merge_transformed_page(page, Transformation().translate(0, h))
         new_page.merge_transformed_page(page, Transformation())
 
-    out_name = nazwa + '_x2.pdf'
+    out_name = '2x_' + nazwa + '.pdf'
     with open(os.path.join(plot_folder, out_name), 'wb') as f:
         writer.write(f)
     QgsMessageLog.logMessage('Zdublowano: ' + out_name, 'LCH', Qgis.Info)

@@ -188,7 +188,9 @@ class GenerujMapRam():
         kl.skala = self.skala
         kl.dodajWydz('adr', [xmin, ymin, xmax, ymax])
         if not kl.ustawPlot():
-            self.doSpr.append([gm, 'all', "Wiekszy niz papier"])
+            self.doSpr.append(
+                [gm, 'all', "Wiekszy niz papier",
+                 QgsGeometry.fromPolygonXY([kl.zwrocPoly()])])
         self.slKl[gm]['all'] = [kl, ]
 
     def ustawKlastry(self):
@@ -217,7 +219,9 @@ class GenerujMapRam():
                     # dopasuj do papieru
                     if not kl[0].ustawPlot():
                         # klaster nie miesci sie na zadnym papierze
-                        self.doSpr.append([gmi, obr, "Wiekszy niz papier"])
+                        self.doSpr.append(
+                            [gmi, obr, "Wiekszy niz papier",
+                             QgsGeometry.fromPolygonXY([kl[0].zwrocPoly()])])
 
                 # W obrebie jest wiecej kalstrow
                 else:
@@ -283,7 +287,7 @@ class GenerujMapRam():
                             wpisane = [x[0]+x[1] for x in self.doSpr]
                             if len([y for y in wpisane if gmi+obr == y]) == 0:
                                 self.doSpr.append(
-                                    [gmi, obr,  "Wiekszy niz papier"]
+                                    [gmi, obr,  "Wiekszy niz papier", geom]
                                 )
                     except:  # noqa
                         QgsMessageLog.logMessage(
@@ -305,6 +309,8 @@ class GenerujMapRam():
                     x[0]+" - "+x[1]+" - "+x[2],
                     "LCH"
                 )
+
+            self._utworzWarstweProblemow()
 
         self.ramkiKlPr.addFeatures(etykFeat)
         self.ramkiKl.commitChanges()
@@ -329,6 +335,33 @@ class GenerujMapRam():
 
         QgsProject.instance().addMapLayer(self.out)
         QgsMessageLog.logMessage("--------------------", "LCH", Qgis.Info)
+
+    def _utworzWarstweProblemow(self):
+        """Tworzy warstwe memory z geometriami klastrow, ktore spowodowaly
+        wpisy w self.doSpr (nie zmiescily sie na papierze albo nie udalo
+        sie ich umiejscowic jako wyniesienie), i dodaje ja do TOC."""
+        warstwa = QgsVectorLayer("Polygon?crs=epsg:2180&index=yes",
+                                 "PROBLEMY_MAPRAM", "memory")
+        pr = warstwa.dataProvider()
+        warstwa.startEditing()
+        pr.addAttributes([
+            QgsField("MUNICIP", QVariant.String, len=3),
+            QgsField("COMMUNITY", QVariant.String, len=4),
+            QgsField("POWOD", QVariant.String, len=100),
+        ])
+        warstwa.updateFields()
+
+        feats = []
+        for gmi, obr, powod, geom in self.doSpr:
+            feat = QgsFeature(warstwa.fields())
+            feat.setGeometry(geom)
+            feat['MUNICIP'] = gmi
+            feat['COMMUNITY'] = obr
+            feat['POWOD'] = powod
+            feats.append(feat)
+        pr.addFeatures(feats)
+        warstwa.commitChanges()
+        QgsProject.instance().addMapLayer(warstwa)
 
     def dopKlastry(self, tab): # noqa
         """
@@ -356,9 +389,16 @@ class GenerujMapRam():
                     for coord in ring:
                         self.slWierz[coord[1]][coord[0]] = 1
 
+        # rzeczywisty zasieg wydzielen w glownym klastrze, przed
+        # dopasowaniem do papieru - potrzebny pozniej do wysrodkowania
+        # calej grupy (glowny klaster + wyniesienia)
+        zak_tresc = tab[0].zwrocZakres()
+
         # ustaw najwiekszy klaster
         if not tab[0].ustawPlot("l", 'd'):
-            self.doSpr.append([tab[0].gmi, tab[0].obr, "Wiekszy niz papier"])
+            self.doSpr.append(
+                [tab[0].gmi, tab[0].obr, "Wiekszy niz papier",
+                 QgsGeometry.fromPolygonXY([tab[0].zwrocPoly()])])
             return False
 
         for i in range(1, len(tab)):
@@ -401,8 +441,54 @@ class GenerujMapRam():
                         print("100 na wysokosc, serio?", st)
 
             if not znalezione:
-                self.doSpr.append([tab[i].gmi, tab[i].obr,
-                                   "Brak mozliwosci umiejscowienia wyn."])
+                self.doSpr.append(
+                    [tab[i].gmi, tab[i].obr,
+                     "Brak mozliwosci umiejscowienia wyn.",
+                     QgsGeometry.fromPolygonXY([tab[i].zwrocPoly()])])
+
+        self._wysrodkujGrupe(tab, zak_tresc)
+
+    def _wysrodkujGrupe(self, tab, zak_tresc):
+        """Jezeli po rozmieszczeniu wyniesien calosc nadal miesci sie na
+        A3 (czyli ramka glownego klastra nie zostala poszerzona), przesuwa
+        cala kompozycje (glowny klaster + wyniesienia) tak, aby byla
+        wysrodkowana na stronie - zamiast zostawac przyklejona do lewego
+        dolnego rogu (efekt wyrownania "l","d" uzywanego do umiejscawiania
+        wyniesien). Przesuwana jest tylko ramka glownego klastra - pozycje
+        wyniesien (xpocz/ypocz) sa liczone wzgledem niej, wiec podazaja za
+        przesunieciem automatycznie, a ich wlasciwa geometria (rzeczywiste
+        polozenie wydzielen) pozostaje bez zmian."""
+        glowny = tab[0]
+        if not glowny.ustawiony:
+            return
+
+        wym = glowny.zwrocWymiary()
+        mapa_szer = wym[0] / (self.skala / 100)
+        mapa_wys = wym[1] / (self.skala / 100)
+        if not (mapa_wys < 20 and mapa_szer < 38.6):
+            # strona zostala poszerzona ponad A3 przy dostawianiu wyniesien
+            return
+
+        comb_xmin, comb_ymin, comb_xmax, comb_ymax = zak_tresc
+        for k in tab[1:]:
+            if k.xpocz == 0 and k.ypocz == 0:
+                continue  # nie udalo sie umiejscowic
+            wymi = k.zwrocWymiary()
+            comb_xmin = min(comb_xmin, k.xpocz)
+            comb_xmax = max(comb_xmax, k.xpocz + wymi[0])
+            comb_ymin = min(comb_ymin, k.ypocz - wymi[1])
+            comb_ymax = max(comb_ymax, k.ypocz)
+
+        slack_x = (glowny.xmax - glowny.xmin) - (comb_xmax - comb_xmin)
+        slack_y = (glowny.ymax - glowny.ymin) - (comb_ymax - comb_ymin)
+
+        delta_x = (comb_xmin - slack_x / 2) - glowny.xmin
+        delta_y = (comb_ymax + slack_y / 2) - glowny.ymax
+
+        glowny.xmin += delta_x
+        glowny.xmax += delta_x
+        glowny.ymin += delta_y
+        glowny.ymax += delta_y
 
     def poszerzMapRamG(self, nr, tab, xmax):
         zak0 = tab[0].zwrocZakres()
@@ -709,8 +795,8 @@ class Klaster(object):
                     self.xmin -= posz_1cm
                     self.xmax += poprx - posz_1cm
                 else:
-                    self.ymin -= poprx / 2
-                    self.ymax += poprx / 2
+                    self.xmin -= poprx / 2
+                    self.xmax += poprx / 2
 
             return True
 

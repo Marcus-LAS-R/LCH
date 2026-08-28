@@ -809,6 +809,10 @@ class Etykietownik():
             wlyrm.updateFields()
             wlyrm.dataProvider().addFeatures(lwydz_ram)
             wlyrm.commitChanges()
+            wlyrm.loadNamedStyle(
+                os.path.abspath(
+                    os.path.join(plugin_dir, '..', 'qml', 'A3.qml'))
+            )
 
             QgsProject.instance().addMapLayer(wlyrm)
 
@@ -847,6 +851,10 @@ class Etykietownik():
             wdzr.updateFields()
             wdzr.dataProvider().addFeatures(ldzewid_ram)
             wdzr.commitChanges()
+            wdzr.loadNamedStyle(
+                os.path.abspath(
+                    os.path.join(plugin_dir, '..', 'qml', 'A3.qml'))
+            )
 
             QgsProject.instance().addMapLayer(wdzr)
 
