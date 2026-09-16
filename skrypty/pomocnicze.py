@@ -3,8 +3,9 @@ import os
 import platform
 import glob
 from qgis.core import QgsProject, Qgis, QgsCoordinateReferenceSystem, \
-    QgsGeometry, QgsPointXY, QgsFeature, QgsVectorLayer, QgsVectorFileWriter, \
-    QgsFeatureRequest, QgsWkbTypes, QgsField
+    QgsCoordinateTransform, QgsGeometry, QgsPointXY, QgsFeature, \
+    QgsVectorLayer, QgsVectorFileWriter, QgsFeatureRequest, QgsWkbTypes, \
+    QgsField
 from PyQt5.QtWidgets import QFileDialog
 from PyQt5.QtCore import QMetaType
 
@@ -114,6 +115,25 @@ class WarstwyPomocnicze():
                 print('Najpierw musisz wygenerować maskę na podstawie oddz')
         return wrap
 
+    def _zapisz_shp(self, warstwa, sciezka, crs):
+        if not warstwa.isValid():
+            return False
+        transform_context = QgsProject.instance().transformContext()
+        opcje = QgsVectorFileWriter.SaveVectorOptions()
+        opcje.driverName = "ESRI Shapefile"
+        opcje.fileEncoding = "UTF-8"
+        if warstwa.crs() != crs:
+            opcje.ct = QgsCoordinateTransform(
+                warstwa.crs(), crs, QgsProject.instance())
+        blad, komunikat, _, _ = QgsVectorFileWriter.writeAsVectorFormatV3(
+            warstwa, sciezka, transform_context, opcje)
+        if blad != QgsVectorFileWriter.NoError:
+            self.iface.messageBar().pushMessage(
+                'BŁĄD', f'Nie udało się zapisać {sciezka}: {komunikat}',
+                Qgis.Critical)
+            return False
+        return True
+
     def _dopisz_wydz_pol_do_lasy(self):
         lasy_path = os.path.join(self.kat, "LASY_INNE_AFT.shp")
         if not os.path.isfile(lasy_path):
@@ -159,14 +179,10 @@ class WarstwyPomocnicze():
         obr_lyr = QgsVectorLayer(obr_pliki[0], 'OBR', 'ogr') if obr_pliki \
             else None
 
+        crs = QgsCoordinateReferenceSystem("epsg:2180")
         if obr_lyr is not None and obr_lyr.isValid():
-            crs = QgsCoordinateReferenceSystem("epsg:2180")
-            QgsVectorFileWriter.writeAsVectorFormat(
-                obr_lyr,
-                os.path.join(self.kat, "OBREBY_AFT.shp"),
-                "UTF-8",
-                crs,
-                "ESRI Shapefile")
+            self._zapisz_shp(
+                obr_lyr, os.path.join(self.kat, "OBREBY_AFT.shp"), crs)
         else:
             self.iface.messageBar().pushMessage(
                 'BŁĄD', 'Nie znalazłem pliku OBR w folderze SHP!',
@@ -176,12 +192,8 @@ class WarstwyPomocnicze():
         if gmin_pliki:
             gmin_lyr = QgsVectorLayer(gmin_pliki[0], 'gmin', 'ogr')
             if gmin_lyr.isValid():
-                QgsVectorFileWriter.writeAsVectorFormat(
-                    gmin_lyr,
-                    os.path.join(self.kat, "GMINY_AFT.shp"),
-                    "UTF-8",
-                    crs,
-                    "ESRI Shapefile")
+                self._zapisz_shp(
+                    gmin_lyr, os.path.join(self.kat, "GMINY_AFT.shp"), crs)
 
     def przygotuj_fochr(self):
         self.kat = self.oddz_kat
@@ -234,11 +246,7 @@ class WarstwyPomocnicze():
 
         # zapisz maske na dysku, moze bedzie potrzebna
         crs = QgsCoordinateReferenceSystem("epsg:2180")
-        QgsVectorFileWriter.writeAsVectorFormat(self.maska,
-                                                maska_path,
-                                                "UTF-8",
-                                                crs,
-                                                "ESRI Shapefile")
+        self._zapisz_shp(self.maska, maska_path, crs)
         self.maska = QgsVectorLayer(maska_path, "MASKA_AFT", "ogr")
 
     # @sprawdz_maske
@@ -272,12 +280,9 @@ class WarstwyPomocnicze():
                 lyrPr.addFeatures(feats)
                 lyr.commitChanges()
                 crs = QgsCoordinateReferenceSystem("epsg:2180")
-                QgsVectorFileWriter.writeAsVectorFormat(
-                    lyr,
-                    os.path.join(self.kat, self._WARSTWY[war]+'.shp'),
-                    "UTF-8",
-                    crs,
-                    "ESRI Shapefile")
+                self._zapisz_shp(
+                    lyr, os.path.join(self.kat, self._WARSTWY[war]+'.shp'),
+                    crs)
 
         else:
             self.iface.messageBar().pushMessage(
