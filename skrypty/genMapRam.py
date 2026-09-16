@@ -756,9 +756,11 @@ class Klaster(object):
         # szerA3 = 1928
         # wysA3 = 990.651
 
-        # w cm dla layoutu
+        # w cm dla layoutu - wys musi dac 297mm po dodaniu marginesow
+        # i tabelki (10+80+10mm) w ustaw_mape._zastosuj_ramke, inaczej
+        # strona PDF przekracza wysokosc A3
         szerA3_lay = 38.56
-        wysA3_lay = 19.81
+        wysA3_lay = 19.7
         self.ustawiony = True
 
         # wartość 1 cm na mapie w zaleznosci od skali

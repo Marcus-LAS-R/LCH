@@ -265,7 +265,7 @@ def ustawWys(iface, wys=''):
 
     wysSl = {
         '900': 81,
-        'A3': 19.813,
+        'A3': 19.7,
     }
 
     ok = True
