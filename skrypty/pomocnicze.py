@@ -78,7 +78,10 @@ class WarstwyPomocnicze():
 
         if platform.system()[:3] == 'Win':
             sc = SciezkaKonfiguracyjna(
-                'PODRECZNIK', 'Wskaż folder Podrecznik/Mapy',
+                'PODRECZNIK',
+                'Wskaż folder Mapy wewnątrz Podręcznika (ten, który '
+                'zawiera podfoldery Szablony_map, pomocnicze itd.), '
+                'NIE sam folder Podręcznik',
                 wymagane_podfoldery=[
                     'Szablony_map', 'logotypy_do_wgrywania', 'pomocnicze'])
             if sc.sciezka is False:
