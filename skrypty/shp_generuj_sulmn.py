@@ -9,7 +9,7 @@ import processing
 
 from collections import defaultdict, Counter
 from PyQt5.QtWidgets import QFileDialog
-from PyQt5.QtCore import QVariant
+from PyQt5.QtCore import QVariant, QMetaType
 
 from .baza_wrapper import Baza, znajdz_baze_do_wydz
 
@@ -244,18 +244,18 @@ class GenerujSulmn(object):
 
         # noinspection PyArgumentList
         slPolDef = {
-            'ID': QgsField("ID", QVariant.Int),
-            'NR_KONT': QgsField("NR_KONT", QVariant.Int),
-            'NR_PNSW': QgsField("NR_PNSW", QVariant.Int),
-            'NR_OSOBL': QgsField("NR_OSOBL", QVariant.Int),
-            'ADR_BDL': QgsField("ADR_BDL", QVariant.String, len=25),
-            'ADR_ADM': QgsField("ADR_ADM", QVariant.String, len=25),
-            'L_EWID': QgsField("L_EWID", QVariant.String, len=1),
-            'NR_EW': QgsField("NR_EW", QVariant.String, len=25),
-            'KOD_PNSW': QgsField("KOD_PNSW", QVariant.String, len=12),
-            'KOD_OSOBL': QgsField("KOD_OSOBL", QVariant.String, len=12),
-            'KOD': QgsField("KOD", QVariant.String, len=12),
-            'SZER': QgsField("SZER", QVariant.Double, 'double', 4, 1),
+            'ID': QgsField("ID", QMetaType.Type.Int),
+            'NR_KONT': QgsField("NR_KONT", QMetaType.Type.Int),
+            'NR_PNSW': QgsField("NR_PNSW", QMetaType.Type.Int),
+            'NR_OSOBL': QgsField("NR_OSOBL", QMetaType.Type.Int),
+            'ADR_BDL': QgsField("ADR_BDL", QMetaType.Type.QString, len=25),
+            'ADR_ADM': QgsField("ADR_ADM", QMetaType.Type.QString, len=25),
+            'L_EWID': QgsField("L_EWID", QMetaType.Type.QString, len=1),
+            'NR_EW': QgsField("NR_EW", QMetaType.Type.QString, len=25),
+            'KOD_PNSW': QgsField("KOD_PNSW", QMetaType.Type.QString, len=12),
+            'KOD_OSOBL': QgsField("KOD_OSOBL", QMetaType.Type.QString, len=12),
+            'KOD': QgsField("KOD", QMetaType.Type.QString, len=12),
+            'SZER': QgsField("SZER", QMetaType.Type.Double, 'double', 4, 1),
         }
 
         # popraw odwolania do aktualnych danych
@@ -501,10 +501,10 @@ class GenerujSulmn(object):
         self.pktosPr = self.pktos.dataProvider()
         self.pktos.startEditing()
         self.pktosPr.addAttributes([
-            QgsField("ID", QVariant.Int),
-            QgsField("ADR_BDL", QVariant.String, len=25),
-            QgsField("KOD_OSOBL", QVariant.String, len=12),
-            QgsField("NR_OSOBL", QVariant.Int),
+            QgsField("ID", QMetaType.Type.Int),
+            QgsField("ADR_BDL", QMetaType.Type.QString, len=25),
+            QgsField("KOD_OSOBL", QMetaType.Type.QString, len=12),
+            QgsField("NR_OSOBL", QMetaType.Type.Int),
         ])
         self.pktos.updateFields()
 

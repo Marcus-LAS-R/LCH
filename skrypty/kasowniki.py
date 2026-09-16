@@ -5,7 +5,7 @@ from qgis.core import QgsProject, QgsGeometry, QgsField, QgsFeature, \
     QgsMessageLog, QgsVectorFileWriter, QgsVectorLayer, QgsPointXY, \
     QgsCoordinateReferenceSystem, Qgis
 import processing
-from PyQt5.QtCore import QVariant
+from PyQt5.QtCore import QMetaType
 from PyQt5.QtGui import QColor
 from collections import defaultdict
 
@@ -56,10 +56,10 @@ class GenerujKasowniki():
                                     "obwodkaPktKas",
                                     "memory")
         self.pr = self.layer.dataProvider()
-        self.pr.addAttributes([QgsField("adr_les", QVariant.String),
-                               QgsField("IDpoly", QVariant.String),
-                               QgsField("X", QVariant.Double),
-                               QgsField("Y", QVariant.Double),
+        self.pr.addAttributes([QgsField("adr_les", QMetaType.Type.QString),
+                               QgsField("IDpoly", QMetaType.Type.QString),
+                               QgsField("X", QMetaType.Type.Double),
+                               QgsField("Y", QMetaType.Type.Double),
                                ])
         self.layer.updateFields()
 
@@ -67,9 +67,9 @@ class GenerujKasowniki():
                                        "KAS",
                                        "memory")
         self.prCan = self.layerCan.dataProvider()
-        self.prCan.addAttributes([QgsField("ID", QVariant.Int),
-                                  QgsField("COMMUNITY", QVariant.String),
-                                  QgsField("MUNICIP", QVariant.String)])
+        self.prCan.addAttributes([QgsField("ID", QMetaType.Type.Int),
+                                  QgsField("COMMUNITY", QMetaType.Type.QString),
+                                  QgsField("MUNICIP", QMetaType.Type.QString)])
         self.layerCan.updateFields()
 
     def save(self):

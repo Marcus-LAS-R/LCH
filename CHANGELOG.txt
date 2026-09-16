@@ -1,6 +1,63 @@
 CHANGELOG — Wtyczka LCH LAS-R
 ==============================
 
+Wersja 2.0c — zmiany wprowadzone 30.07–16.09.2026
+------------------------------------------------
+
+### Nowe funkcje
+
+1. GENERUJ STRUKTURĘ MAP — rozbudowa (struktura.py)
+   - Nowy dialog opcji: TOC, KLU_AFT/LFT, szablony map, logotypy, wybór
+     wykonawcy
+   - EWID dostaje pola MUNICIP/COMMUNITY tak jak KLU
+   - KLU_AFT/KLU_LFT generowane wprost z _MAPY\SHP\KLU.shp, bez szukania w TOC
+   - Struktura katalogów gmin/obrębów tworzona bez kopiowania bazy taksatora
+     do każdego folderu — wystarczy wskazać jeden plik bazy, resztę wtyczka
+     znajduje sama, przeszukując drzewo katalogów w górę
+
+2. USTAW MAPĘ — automatyczne arkusze (ustaw_mape.py)
+   - Wykrywanie poligonów A1, A2... w warstwie MapRam i automatyczne
+     klonowanie layoutu na każdy arkusz (przyrostek _ARK_n do nazwy pliku),
+     zarówno w trybie pojedynczym, jak i katalogowym
+
+3. REORGANIZACJA MENU (lch.py)
+   - Nowe podmenu "Narzędziowe" (KLU_LFT, Połącz warstwy, Generuj spisy
+     atlasów, Generuj krzewy) i "Ustaw pojedynczo" (Ustaw Mapę, Ustaw Legendę)
+
+### Poprawki i ulepszenia
+
+4. EKSPORTUJ MAPY — więcej layoutów i lepsza organizacja
+   - Eksportowane są teraz wszystkie layouty projektu (wcześniej tylko
+     pierwszy — pomijane były np. Atlas, LEG, MAPA_PRZEGLĄDOWA)
+   - Eksport trafia do PLOTOWANIE/<gmina>, z podziałem na Mapy/Atlasy gdy w
+     przebiegu występują oba typy layoutów
+
+5. WYTNIJ MASKĘ — usunięta zależność od SAGA
+   - saga:difference zamieniony na native:difference — SAGA nie jest
+     dostępna/skonfigurowana u każdego użytkownika i powodowała błąd
+     "Algorithm saga:difference not found"
+
+6. GENERUJ KASOWNIKI / POW_WYDZ (dopisz_kody.py)
+   - Zaokrąglenie POW_WYDZ do 4 miejsc przed zapisem — surowy float z szumem
+     zmiennoprzecinkowym przepełniał pole DBF i wywalał generowanie kasowników
+
+7. WARSTWY POMOCNICZE, GENERUJ MAPRAM, ETYKIETY
+   - przetnij_warstwe zawsze zapisuje plik wynikowy (również pusty)
+   - Naprawiono błąd xmin/xmax w klastrowaniu MapRam, grupa klastrów jest
+     teraz wyśrodkowana na arkuszu A3 zamiast przyklejona do lewego dolnego
+     rogu
+   - Warstwy konfliktów etykiet dostają domyślny styl A3 dołączony do wtyczki
+
+8. Ujednolicona konfiguracja ścieżek pomocniczych (pomocnicze.py)
+   - Jeden wspólny plik sciezki_konfiguracyjne.txt z walidacją wymaganych
+     podfolderów (wcześniej osobne, niespójne mechanizmy)
+
+9. Naprawiono ostrzeżenia DeprecationWarning przy tworzeniu pól atrybutów
+   (QgsField) w kilku skryptach — nowsze QGIS wymaga typu z QMetaType zamiast
+   przestarzałego QVariant
+
+==============================
+
 Wersja 2.0b — zmiany wprowadzone 28.07.2026
 ------------------------------------------------
 

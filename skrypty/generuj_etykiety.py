@@ -3,7 +3,7 @@ from qgis.core import QgsSpatialIndex, QgsGeometry, QgsRectangle, \
     QgsMessageLog, QgsPointXY, QgsFields, QgsField, QgsFeature, QgsProject, \
     Qgis, QgsVectorLayer, QgsCoordinateReferenceSystem, QgsVectorFileWriter, \
     QgsVectorLayerJoinInfo
-from PyQt5.QtCore import QVariant
+from PyQt5.QtCore import QMetaType
 
 
 class GenerujPunkty():
@@ -293,12 +293,12 @@ class RoboczeDane():
         lista = []
         lista_ramki = []
         attr_def = [
-            QgsField("ADR_LES", QVariant.String, len=35),
-            QgsField("PARCELID", QVariant.String, len=35),
-            QgsField("MUNICIP", QVariant.String, len=3),
-            QgsField("COMMUNITY", QVariant.String, len=4),
-            QgsField("typEtyk", QVariant.Int),
-            QgsField("waga", QVariant.Int),
+            QgsField("ADR_LES", QMetaType.Type.QString, len=35),
+            QgsField("PARCELID", QMetaType.Type.QString, len=35),
+            QgsField("MUNICIP", QMetaType.Type.QString, len=3),
+            QgsField("COMMUNITY", QMetaType.Type.QString, len=4),
+            QgsField("typEtyk", QMetaType.Type.Int),
+            QgsField("waga", QMetaType.Type.Int),
         ]
         fds = QgsFields()
         for fi in attr_def:
@@ -435,8 +435,8 @@ class Punkt():
         self.flaga = False  # flaga do sprawdzenia jezeli True
 
         self.attr_def = [
-            QgsField("MUNICIP", QVariant.String, len=3),
-            QgsField("COMMUNITY", QVariant.String, len=4),
+            QgsField("MUNICIP", QMetaType.Type.QString, len=3),
+            QgsField("COMMUNITY", QMetaType.Type.QString, len=4),
         ]
 
     @property
@@ -446,8 +446,8 @@ class Punkt():
     def wydz_feat(self):
         fds = QgsFields()
         for fi in self.attr_def + \
-                [QgsField("ADR_LES", QVariant.String, len=35),
-                 QgsField("typEtyk", QVariant.Int), ]:
+                [QgsField("ADR_LES", QMetaType.Type.QString, len=35),
+                 QgsField("typEtyk", QMetaType.Type.Int), ]:
             fds.append(fi)
 
         f = QgsFeature()
@@ -471,7 +471,7 @@ class Punkt():
     def dzewid_feat(self):
         fds = QgsFields()
         for fi in [
-                QgsField("PARCELNR", QVariant.String, len=15)] + self.attr_def:
+                QgsField("PARCELNR", QMetaType.Type.QString, len=15)] + self.attr_def:
             fds.append(fi)
 
         f = QgsFeature()

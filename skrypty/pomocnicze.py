@@ -6,7 +6,7 @@ from qgis.core import QgsProject, Qgis, QgsCoordinateReferenceSystem, \
     QgsGeometry, QgsPointXY, QgsFeature, QgsVectorLayer, QgsVectorFileWriter, \
     QgsFeatureRequest, QgsWkbTypes, QgsField
 from PyQt5.QtWidgets import QFileDialog
-from PyQt5.QtCore import QVariant
+from PyQt5.QtCore import QMetaType
 
 
 class SciezkaKonfiguracyjna:
@@ -132,7 +132,7 @@ class WarstwyPomocnicze():
         pr = lasy.dataProvider()
 
         if 'TYP' not in [f.name() for f in lasy.fields()]:
-            pr.addAttributes([QgsField('TYP', QVariant.String, len=10)])
+            pr.addAttributes([QgsField('TYP', QMetaType.Type.QString, len=10)])
             lasy.updateFields()
 
         typ_idx = lasy.fields().indexOf('TYP')

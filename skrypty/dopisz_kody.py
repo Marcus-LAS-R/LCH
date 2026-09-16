@@ -2,7 +2,7 @@ import os
 from collections import defaultdict
 from qgis.core import QgsVectorLayer, Qgis, QgsProject, QgsFields, \
     QgsField, QgsMessageLog
-from PyQt5.QtCore import QVariant
+from PyQt5.QtCore import QMetaType
 from shutil import copyfile
 
 from .baza_wrapper import Baza, znajdz_baze_do_wydz
@@ -372,38 +372,38 @@ class DopiszKody():
         attr_nazwy = [x.name() for x in self.wydz.fields()]
         attr = QgsFields()
         pola = [
-            QgsField("COUNTY_L", QVariant.String, len=1),
-            QgsField("COUNTY", QVariant.String, len=2),
-            QgsField("DISTRICT", QVariant.String, len=2),
-            QgsField("MUNICIP", QVariant.String, len=3),
-            QgsField("COMMUNITY", QVariant.String, len=4),
-            QgsField("GRP", QVariant.String, len=2),
-            # QgsField("ODDZ", QVariant.String, len=4),
-            # QgsField("WYDZ", QVariant.String, len=4),
-            # QgsField("ADR_LES", QVariant.String, len=35),
-            QgsField("L_EWID", QVariant.String, len=1),
-            QgsField("UDZIAL", QVariant.String, len=5),
-            QgsField("GAT", QVariant.String, len=10),
-            QgsField("WIEK", QVariant.Int),
-            QgsField("ZADRZEW", QVariant.Double, 'double', 10, 1),
-            QgsField("POW_WYDZ", QVariant.String, 'double', 10, 2),
-            QgsField("TYP_POW", QVariant.String, len=20),
-            QgsField("STRUKTUR", QVariant.String, len=20),
-            QgsField("SLMN_KOL", QVariant.Int),
-            QgsField("STL", QVariant.String, len=20),
-            QgsField("ZABIEG", QVariant.String, len=20),
-            QgsField("POW_ZAB", QVariant.Double, 'double', 10, 4),
-            QgsField("ODNOW", QVariant.String, len=20),
-            QgsField("POW_ODN", QVariant.Double, 'double', 10, 4),
-            QgsField("AGROT", QVariant.Double, 'double', 10, 4),
-            QgsField("PIEL", QVariant.Double, 'double', 10, 4),
+            QgsField("COUNTY_L", QMetaType.Type.QString, len=1),
+            QgsField("COUNTY", QMetaType.Type.QString, len=2),
+            QgsField("DISTRICT", QMetaType.Type.QString, len=2),
+            QgsField("MUNICIP", QMetaType.Type.QString, len=3),
+            QgsField("COMMUNITY", QMetaType.Type.QString, len=4),
+            QgsField("GRP", QMetaType.Type.QString, len=2),
+            # QgsField("ODDZ", QMetaType.Type.QString, len=4),
+            # QgsField("WYDZ", QMetaType.Type.QString, len=4),
+            # QgsField("ADR_LES", QMetaType.Type.QString, len=35),
+            QgsField("L_EWID", QMetaType.Type.QString, len=1),
+            QgsField("UDZIAL", QMetaType.Type.QString, len=5),
+            QgsField("GAT", QMetaType.Type.QString, len=10),
+            QgsField("WIEK", QMetaType.Type.Int),
+            QgsField("ZADRZEW", QMetaType.Type.Double, 'double', 10, 1),
+            QgsField("POW_WYDZ", QMetaType.Type.QString, 'double', 10, 2),
+            QgsField("TYP_POW", QMetaType.Type.QString, len=20),
+            QgsField("STRUKTUR", QMetaType.Type.QString, len=20),
+            QgsField("SLMN_KOL", QMetaType.Type.Int),
+            QgsField("STL", QMetaType.Type.QString, len=20),
+            QgsField("ZABIEG", QMetaType.Type.QString, len=20),
+            QgsField("POW_ZAB", QMetaType.Type.Double, 'double', 10, 4),
+            QgsField("ODNOW", QMetaType.Type.QString, len=20),
+            QgsField("POW_ODN", QMetaType.Type.Double, 'double', 10, 4),
+            QgsField("AGROT", QMetaType.Type.Double, 'double', 10, 4),
+            QgsField("PIEL", QMetaType.Type.Double, 'double', 10, 4),
             ]
 
         if self.przestoje_flag:
-            pola.append(QgsField("PRZEST", QVariant.Double, 'double', 10, 4))
+            pola.append(QgsField("PRZEST", QMetaType.Type.Double, 'double', 10, 4))
 
         pola += [
-            QgsField("INNE", QVariant.String, len=70),
+            QgsField("INNE", QMetaType.Type.QString, len=70),
         ]
 
         dodaj = [y for y in pola if y.name() not in attr_nazwy]

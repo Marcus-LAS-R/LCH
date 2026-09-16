@@ -2,7 +2,7 @@
 name=LCH LAS-R
 qgisMinimumVersion=3.11
 description=Plugin ułatwiający generowanie map dla UPUL (Uproszczone Plany Urządzania Lasu)
-version=2.0b
+version=2.0c
 author=Paweł Krąpiec, Marek Młynarczyk
 email=p.krapiec@las-r.pl, m.mlynarczyk@las-r.pl
 

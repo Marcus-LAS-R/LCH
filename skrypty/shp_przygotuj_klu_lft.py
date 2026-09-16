@@ -3,7 +3,7 @@ from qgis.core import (
     QgsProject, Qgis, QgsVectorFileWriter, QgsVectorLayer,
     QgsCoordinateReferenceSystem, QgsFeatureRequest, QgsField,
 )
-from PyQt5.QtCore import QVariant
+from PyQt5.QtCore import QMetaType
 from PyQt5.QtWidgets import QInputDialog
 import processing
 
@@ -17,9 +17,9 @@ def uzupelnij_municip_community(iface, warstwa):
     pola_nazwy = [f.name() for f in warstwa.fields()]
     do_dodania = []
     if 'MUNICIP' not in pola_nazwy:
-        do_dodania.append(QgsField('MUNICIP', QVariant.String, len=3))
+        do_dodania.append(QgsField('MUNICIP', QMetaType.Type.QString, len=3))
     if 'COMMUNITY' not in pola_nazwy:
-        do_dodania.append(QgsField('COMMUNITY', QVariant.String, len=4))
+        do_dodania.append(QgsField('COMMUNITY', QMetaType.Type.QString, len=4))
 
     if do_dodania:
         warstwa.startEditing()

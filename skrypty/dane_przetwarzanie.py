@@ -6,7 +6,7 @@ from qgis.core import QgsProject, Qgis, QgsVectorFileWriter, QgsVectorLayer,\
 from PyQt5.QtWidgets import (QFileDialog, QMessageBox, QDialog,
                               QDialogButtonBox, QVBoxLayout, QListWidget,
                               QListWidgetItem, QLabel)
-from PyQt5.QtCore import Qt, QVariant
+from PyQt5.QtCore import Qt, QMetaType
 import processing
 from collections import defaultdict
 from .planarize import Planarize
@@ -226,14 +226,14 @@ class UzupelnijLinPnsw():
         pola = [f.name() for f in self.pnsw.fields().toList()]
         if 'COMMUNITY' not in pola:
             self.pnswPr.addAttributes([
-                QgsField('COMMUNITY', QVariant.String, len=4)])
+                QgsField('COMMUNITY', QMetaType.Type.QString, len=4)])
         if 'MUNICIP' not in pola:
             self.pnswPr.addAttributes([
-                QgsField('MUNICIP', QVariant.String, len=3)])
+                QgsField('MUNICIP', QMetaType.Type.QString, len=3)])
 
         if u'ADR_BDL' not in pola:
             self.pnswPr.addAttributes([
-                QgsField('ADR_BDL', QVariant.String, len=35)])
+                QgsField('ADR_BDL', QMetaType.Type.QString, len=35)])
 
         self.pnsw.commitChanges()
         # dopisz kody

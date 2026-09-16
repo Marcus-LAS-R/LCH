@@ -3,7 +3,7 @@ from qgis.core import QgsPointXY, Qgis, QgsProject, QgsMessageLog, QgsField, \
     QgsVectorLayer, QgsFeature, QgsGeometry, QgsVectorFileWriter, \
     QgsExpression, QgsCoordinateReferenceSystem, QgsFeatureRequest
 from collections import defaultdict
-from PyQt5.QtCore import QVariant
+from PyQt5.QtCore import QMetaType
 from PyQt5.QtWidgets import QDialog, QMessageBox
 
 from .ui.ui_mapram import Ui_Dialog
@@ -238,14 +238,14 @@ class GenerujMapRam():
         self.ramkiKlPr = self.ramkiKl.dataProvider()
         self.ramkiKl.startEditing()
         self.ramkiKlPr.addAttributes([
-            QgsField("MUNICIP", QVariant.String, len=3),
-            QgsField("COMMUNITY", QVariant.String, len=4),
-            QgsField("RAMKA", QVariant.String, len=2),
-            QgsField("xpocz", QVariant.Double, 'double', 10, 2),
-            QgsField("ypocz", QVariant.Double, 'double', 10, 2),
-            QgsField("mapa_szer", QVariant.Double, 'double', 10, 2),
-            QgsField("mapa_wys", QVariant.Double, 'double', 10, 2),
-            QgsField("skala", QVariant.Int),
+            QgsField("MUNICIP", QMetaType.Type.QString, len=3),
+            QgsField("COMMUNITY", QMetaType.Type.QString, len=4),
+            QgsField("RAMKA", QMetaType.Type.QString, len=2),
+            QgsField("xpocz", QMetaType.Type.Double, 'double', 10, 2),
+            QgsField("ypocz", QMetaType.Type.Double, 'double', 10, 2),
+            QgsField("mapa_szer", QMetaType.Type.Double, 'double', 10, 2),
+            QgsField("mapa_wys", QMetaType.Type.Double, 'double', 10, 2),
+            QgsField("skala", QMetaType.Type.Int),
             ])
         self.ramkiKl.updateFields()
 
@@ -345,9 +345,9 @@ class GenerujMapRam():
         pr = warstwa.dataProvider()
         warstwa.startEditing()
         pr.addAttributes([
-            QgsField("MUNICIP", QVariant.String, len=3),
-            QgsField("COMMUNITY", QVariant.String, len=4),
-            QgsField("POWOD", QVariant.String, len=100),
+            QgsField("MUNICIP", QMetaType.Type.QString, len=3),
+            QgsField("COMMUNITY", QMetaType.Type.QString, len=4),
+            QgsField("POWOD", QMetaType.Type.QString, len=100),
         ])
         warstwa.updateFields()
 
