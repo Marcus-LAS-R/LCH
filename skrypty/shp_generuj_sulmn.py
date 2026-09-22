@@ -59,6 +59,15 @@ class GenerujSulmn(object):
         self.wydz_path = self.wydz.dataProvider().dataSourceUri().split("|")[0]
         self.kat = os.path.dirname(self.wydz_path)
 
+        # znajdz baze juz teraz, zeby moc zaproponowac folder "surowe" na jej
+        # poziomie jako domyslna sciezke zapisu w ustawProj()
+        self.baza_sc = znajdz_baze_do_wydz(self.iface, self.wydz)
+        self.folder_surowe = False
+        if self.baza_sc:
+            self.folder_surowe = os.path.join(
+                os.path.dirname(self.baza_sc), 'surowe')
+            os.makedirs(self.folder_surowe, exist_ok=True)
+
         self.ustawProj()  # zadeklaruj wszystkie niezbedne zmienne dla klasy
 
     # noinspection PyPep8Naming
@@ -84,11 +93,13 @@ class GenerujSulmn(object):
         self.linie = False
         kat = self.kat
 
-        # pobierz od uzyszkodnika katalog docelowy na sulmn
+        # pobierz od uzyszkodnika katalog docelowy na sulmn - domyslnie
+        # folder "surowe" na poziomie bazy, jesli udalo sie ja znalezc
+        kat_startowy = self.folder_surowe if self.folder_surowe else kat
         self.katS = QFileDialog.getExistingDirectory(
             self.iface.mainWindow(),
             "Katalog do zapisania danych:",
-            kat)
+            kat_startowy)
 
         # stworz katalog roboczy jezeli nie istnieje
         self.kattemp = os.path.join(self.katS, "temp")
@@ -205,9 +216,16 @@ class GenerujSulmn(object):
                                         'linie',
                                         'ogr')
 
-        # spradz polaczenie z baza na samym koncu
-        baza_sc = znajdz_baze_do_wydz(self.iface, self.wydz)
-        self.baza = Baza(baza_sc)
+        # sciezka do bazy juz ustalona w __init__ (na potrzeby folderu
+        # "surowe"), tu tylko sprawdzamy polaczenie
+        if not self.baza_sc:
+            self.iface.messageBar().pushMessage(
+                'Error',
+                'Nie udało się połączyć z bazą taksatora',
+                level=Qgis.Critical)
+            return False
+
+        self.baza = Baza(self.baza_sc)
         if not self.baza.polacz():
             self.iface.messageBar().pushMessage(
                 'Error',
