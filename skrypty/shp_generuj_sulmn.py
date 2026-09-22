@@ -8,7 +8,7 @@ from qgis.core import QgsVectorLayer, QgsVectorFileWriter, Qgis, QgsProject, \
 import processing
 
 from collections import defaultdict, Counter
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from PyQt5.QtCore import QVariant, QMetaType
 
 from .baza_wrapper import Baza, znajdz_baze_do_wydz
@@ -25,13 +25,34 @@ class GenerujSulmn(object):
 
         self.wydz = False
         self.kat = False
+        wydz_pol = None
+        wydz_dopisane = None
         for lyr in QgsProject.instance().mapLayers().values():
             if lyr.name() == "WYDZ_POL":
-                self.wydz = lyr
+                wydz_pol = lyr
+            elif lyr.name() == "WYDZ_DOPISANE":
+                wydz_dopisane = lyr
+
+        if wydz_pol and wydz_dopisane:
+            odp = QMessageBox.question(
+                self.iface.mainWindow(),
+                "Wybierz warstwę",
+                "W TOC znajdują się obie warstwy: WYDZ_POL i "
+                "WYDZ_DOPISANE.\nUżyć WYDZ_POL?\n"
+                "(Nie = użyj WYDZ_DOPISANE)",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            self.wydz = wydz_pol if odp == QMessageBox.Yes else wydz_dopisane
+        elif wydz_pol:
+            self.wydz = wydz_pol
+        elif wydz_dopisane:
+            self.wydz = wydz_dopisane
 
         if self.wydz is False:
             self.iface.messageBar().pushMessage(
-                'Error', "Brak warstwy WYDZ_POl w TOC!", level=Qgis.Critical)
+                'Error', "Brak warstwy WYDZ_POL/WYDZ_DOPISANE w TOC!",
+                level=Qgis.Critical)
             return
 
         self.wydz.dataProvider().setEncoding('UTF-8')
@@ -568,7 +589,7 @@ class GenerujSulmn(object):
             'GRASS_MIN_AREA_PARAMETER': 0.1,
             'GRASS_OUTPUT_TYPE_PARAMETER': 0,
             'GRASS_REGION_PARAMETER': None,
-            'GRASS_SNAP_TOLERANCE_PARAMETER': 0.2,
+            'GRASS_SNAP_TOLERANCE_PARAMETER': 0.01,
             'GRASS_VECTOR_DSCO': '',
             'GRASS_VECTOR_EXPORT_NOCAT': False,
             'GRASS_VECTOR_LCO': '',
@@ -577,7 +598,7 @@ class GenerujSulmn(object):
             'binput': os.path.join(self.katS, 'UZYTKI.shp'),
             'btype': 0,
             'operator': 0,
-            'snap': 0.2,
+            'snap': 0.01,
             'output': os.path.join(self.katS,
                                    'temp',
                                    'O_PODST_geom_not_fixed.shp')
