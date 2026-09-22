@@ -1,5 +1,6 @@
 import os
 import platform
+import shutil
 
 from qgis.core import QgsVectorLayer, QgsVectorFileWriter, Qgis, QgsProject, \
     QgsCoordinateReferenceSystem, QgsField, QgsMessageLog, QgsSpatialIndex, \
@@ -712,6 +713,99 @@ class GenerujSulmn(object):
             uz.dataProvider().changeAttributeValues({k: it})
         uz.commitChanges()
 
+    def generujOddzialy(self):
+        # buduje warstwe ODDZIAL na podstawie POW - obcina ADR_BDL do kodu
+        # samego oddzialu (bez wydzielenia) i laczy wydzielenia nalezace
+        # do tego samego oddzialu (port z Mapa_PU generuj_oddzialy.py,
+        # zrodlem jest tu POW zamiast O_PODST - mniej obiektow, ten sam
+        # wynik geometryczny)
+        pow_lyr = QgsVectorLayer(
+            os.path.join(self.katS, 'POW.shp'), 'pow_oddz', 'ogr')
+        fnm = pow_lyr.dataProvider().fieldNameMap()
+        pow_lyr.startEditing()
+        zmiany = {}
+        for f in pow_lyr.getFeatures():
+            zmiany[f.id()] = {
+                fnm['ADR_BDL']: '{}    -'.format(
+                    self.isNone(f['ADR_BDL'])[:18])
+            }
+        for k, it in zmiany.items():
+            pow_lyr.dataProvider().changeAttributeValues({k: it})
+        pow_lyr.commitChanges()
+
+        fixed = processing.run(
+            'native:fixgeometries',
+            {'INPUT': pow_lyr, 'OUTPUT': 'TEMPORARY_OUTPUT'})
+        aggregate = processing.run(
+            'native:aggregate',
+            {
+                'INPUT': fixed['OUTPUT'],
+                'GROUP_BY': '"ADR_BDL"',
+                'AGGREGATES': [{
+                    'aggregate': 'first_value',
+                    'delimiter': ',',
+                    'input': '"ADR_BDL"',
+                    'length': 25,
+                    'name': 'ADR_BDL',
+                    'precision': 0,
+                    'type': 10,
+                }],
+                'OUTPUT': 'TEMPORARY_OUTPUT',
+            })
+        final_fixed = processing.run(
+            'native:fixgeometries',
+            {'INPUT': aggregate['OUTPUT'], 'OUTPUT': 'TEMPORARY_OUTPUT'})
+
+        self.oddzial = final_fixed['OUTPUT']
+        self.oddzial.startEditing()
+        self.oddzial.dataProvider().addAttributes(
+            [QgsField('ID', QMetaType.Type.Int)])
+        self.oddzial.updateFields()
+        fnm = self.oddzial.dataProvider().fieldNameMap()
+        zmiany = {}
+        for f in self.oddzial.getFeatures():
+            zmiany[f.id()] = {fnm['ID']: f.id()+1}
+        for k, it in zmiany.items():
+            self.oddzial.dataProvider().changeAttributeValues({k: it})
+        self.oddzial.commitChanges()
+
+        QgsVectorFileWriter.writeAsVectorFormat(
+            self.oddzial,
+            os.path.join(self.katS, 'ODDZIAL.shp'),
+            'UTF-8',
+            self.crs,
+            'ESRI Shapefile')
+        QgsMessageLog.logMessage('Utworzono warstwę ODDZIAL', 'LCH')
+
+    def generujLokalizacjeOpisow(self, nazwaWarstwy, nazwaWarstwyOpisowej,
+                                 pola):
+        # generuje punkt opisowy (point on surface - zawsze lezy na
+        # geometrii, tez dla wkleslych ksztaltow) dla kazdej cechy
+        # warstwy zrodlowej, port z Mapa_PU generuj_lokalizacje.py
+        processing.run(
+            'native:pointonsurface',
+            {
+                'INPUT': os.path.join(self.katS, nazwaWarstwy + '.shp'),
+                'ALL_PARTS': False,
+                'OUTPUT': os.path.join(
+                    self.katS, nazwaWarstwyOpisowej + '.shp'),
+            })
+
+        warstwa = QgsVectorLayer(
+            os.path.join(self.katS, nazwaWarstwyOpisowej + '.shp'),
+            nazwaWarstwyOpisowej, 'ogr')
+        warstwa.startEditing()
+        nadmiarowe = sorted(
+            [warstwa.dataProvider().fieldNameIndex(x.name())
+             for x in warstwa.fields().toList()
+             if x.name() not in pola],
+            reverse=True)
+        warstwa.dataProvider().deleteAttributes(nadmiarowe)
+        warstwa.updateFields()
+        warstwa.commitChanges()
+        QgsMessageLog.logMessage(
+            'Utworzono warstwę ' + nazwaWarstwyOpisowej, 'LCH')
+
     def generujWarstwy(self):
         # metoda zbiorcza do wygenerowania wszystkich warstwy do SULMN
         self.iface.messageBar().pushMessage(
@@ -750,8 +844,31 @@ class GenerujSulmn(object):
         self.przygotujUzytkiOpodst()
         self.iface.messageBar().clearWidgets()
         self.iface.messageBar().pushMessage(
+            'Przetwarzam', 'Lokalizacja opisów POW', Qgis.Success,
+        )
+        self.generujLokalizacjeOpisow('POW', 'OP_POW', ['ID', 'ADR_BDL'])
+        self.iface.messageBar().clearWidgets()
+        self.iface.messageBar().pushMessage(
+            'Przetwarzam', 'ODDZIAL', Qgis.Success,
+        )
+        self.generujOddzialy()
+        self.iface.messageBar().clearWidgets()
+        self.iface.messageBar().pushMessage(
+            'Przetwarzam', 'Lokalizacja opisów ODDZIAL', Qgis.Success,
+        )
+        self.generujLokalizacjeOpisow('ODDZIAL', 'OP_ODDZ', ['ID', 'ADR_BDL'])
+        self.iface.messageBar().clearWidgets()
+        self.iface.messageBar().pushMessage(
             'ZAKONCZONO', 'sukcesem', Qgis.Success, 10
         )
+
+        # zwolnij uchwyty do warstw posrednich w temp przed czyszczeniem
+        self.wydz = None
+        self.dzkat = None
+        self.ls = None
+        self.pnsw = None
+        self.linie = None
+        shutil.rmtree(self.kattemp, ignore_errors=True)
 
         self.iface.messageBar().pushMessage(
             'OK', 'Zakończono generowanie SULMN', level=Qgis.Success)
