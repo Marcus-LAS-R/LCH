@@ -7,6 +7,11 @@ from PyQt5.QtWidgets import (QFileDialog, QDialog, QDialogButtonBox,
 PROG_PASA_MM = 420
 
 
+def _miesci_sie_w_A3(szer_mm, wys_mm):
+    # 1 mm tolerancji na zaokrąglenia — ten sam próg co w drukuj_mapy_katalog
+    return min(szer_mm, wys_mm) <= 298 and max(szer_mm, wys_mm) <= 421
+
+
 def _usun_aux(pdf_path):
     """Usuwa sidecar .aux.xml, ktory GDAL dopisuje przy eksporcie PDF."""
     aux_path = pdf_path + '.aux.xml'
@@ -158,7 +163,9 @@ def eksportuj_mapy(iface):
                     _usun_aux(pdf_path)
 
             else:
-                pdf_path = os.path.join(folder_mapy, nazwa + '.pdf')
+                # Mapy mieszczące się na A3 dostają przyrostek _A3 w nazwie pliku
+                nazwa_pliku = nazwa + ('_A3' if _miesci_sie_w_A3(szer_mm, wys_mm) else '')
+                pdf_path = os.path.join(folder_mapy, nazwa_pliku + '.pdf')
                 res = exporter.exportToPdf(
                     pdf_path,
                     QgsLayoutExporter.PdfExportSettings())
@@ -168,11 +175,11 @@ def eksportuj_mapy(iface):
                     wykonane += 1
                     _usun_aux(pdf_path)
                     if min(szer_mm, wys_mm) < PROG_PASA_MM:
-                        pasy.append((nazwa, pdf_path, szer_mm, wys_mm))
+                        pasy.append((nazwa_pliku, pdf_path, szer_mm, wys_mm))
 
                 if eksportuj_tiff and 'LEG' != nazwa[-3:]:
                     res = exporter.exportToImage(
-                        os.path.join(folder_mapy, nazwa + '.tif'),
+                        os.path.join(folder_mapy, nazwa_pliku + '.tif'),
                         QgsLayoutExporter.ImageExportSettings())
                     if res != QgsLayoutExporter.Success:
                         bledne += 1
@@ -233,7 +240,8 @@ def _dubluj(m, plot_folder):
         new_page.merge_transformed_page(page, Transformation().translate(0, h))
         new_page.merge_transformed_page(page, Transformation())
 
-    out_name = '2x_' + nazwa + '.pdf'
+    # Para musi nazywać się NAZWA_x2.pdf — tak szuka jej drukuj_mapy_katalog
+    out_name = nazwa + '_x2.pdf'
     with open(os.path.join(plot_folder, out_name), 'wb') as f:
         writer.write(f)
     QgsMessageLog.logMessage('Zdublowano: ' + out_name, 'LCH', Qgis.Info)
