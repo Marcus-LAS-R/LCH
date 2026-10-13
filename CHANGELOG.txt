@@ -1,6 +1,56 @@
 CHANGELOG — Wtyczka LCH LAS-R
 ==============================
 
+Wersja 2.0 — zmiany wprowadzone 16.09–13.10.2026 (wyjście z bety)
+------------------------------------------------
+
+### Nowe funkcje
+
+1. DRUKUJ MAPY (KATALOG) — osobne drukarki dla formatów (drukuj_mapy_katalog.py)
+   - Osobny wybór drukarki dla wielkiego formatu, A3 i A4 — wiersz pojawia
+     się tylko, gdy we wskazanym folderze są pliki danego formatu; każda
+     lista ma opcję "— nie drukuj —" (np. żeby drukować same atlasy)
+   - Druk dwustronny atlasów (layouty ATLAS i LEG albo pliki z folderu
+     Atlasy), domyślnie włączony, obracanie po długim boku
+   - Pliki zbierane ze wskazanego folderu i podfolderów Mapy/Atlasy, na
+     liście widać format każdego pliku
+   - A3/A4 drukowane na standardowym papierze A3/A4, wybrane drukarki są
+     zapamiętywane
+   - Orientacja papieru, liczba kopii, wybór obrębów do druku
+   - Usunięty checkbox "Drukuj A3" (zastąpiony wyborem drukarki A3)
+
+2. DOPISZ KODY — WYDZ_POL w jednym standardzie z WYDZ_DOPISANE (LAS-R)
+   - Zapis WYDZ_POL od nowa w UTF-8 (wcześniej kopia 1:1 z cudzym .cpg),
+     bez pól layer/path doklejanych przy scalaniu warstw
+   - Nowe pole POKRYWA (z bazy), L_EWID = N dla wydzieleń nieleśnych
+   - Sprawdzenie warstwy przed dopisaniem (kolumny, układ, zgodność
+     z bazą, duble, wydzielenia na nielasach) — kolejne kroki wykonują się
+     tylko, gdy poprzedni się udał
+   - Naprawiony wysyp przy błędzie generowania kodu SLMN_KOL
+
+3. GENERUJ SULMN (shp_generuj_sulmn.py)
+   - Generowanie ODDZIAL i lokalizacji opisów (POW/ODDZIAL), sprzątanie
+     plików tymczasowych
+   - WYDZ_DOPISANE obsługiwane jako alternatywa dla WYDZ_POL
+   - Domyślny katalog zapisu to folder "surowe" na poziomie bazy taksatora
+   - Mniejszy snap w O_PODST (0.2 → 0.01)
+
+### Poprawki i ulepszenia
+
+4. EKSPORTUJ MAPY (eksportuj_mapy_katalog.py)
+   - Podwójne PDF (_x2) trafiają do PLOTOWANIE/<gmina>_x2 i powstają tylko
+     dla wielkiego formatu (A3/A4 drukowane są jako oryginał)
+   - Mapy mieszczące się na A3 dostają przyrostek _A3
+
+5. MAPRAM — zmniejszona wysokość pola treści A3, żeby strona PDF mieściła
+   się w 297 mm
+
+6. WARSTWY POMOCNICZE (pomocnicze.py)
+   - Zapis warstw nowszą metodą QGIS z obsługą błędów zapisu
+   - Doprecyzowane pytanie o folder Mapy
+
+==============================
+
 Wersja 2.0c — zmiany wprowadzone 30.07–16.09.2026
 ------------------------------------------------
 

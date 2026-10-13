@@ -511,10 +511,9 @@ class Lch:
 
     def dopisz_meta(self):
         d = dopisz_kody.DopiszKody(self.iface)
-        d.pobierz_dane()
-        d.pobierzBaze()
-        d.dopisz_kody()
-        dane_przetwarzanie.UzupelnijLinPnsw(self.iface)
+        if d.pobierz_dane() and d.poprawne_wydz() and d.pobierzBaze() and \
+                d.dopisz_kody():
+            dane_przetwarzanie.UzupelnijLinPnsw(self.iface)
 
     def generuj_kasowniki(self):
         kasowniki.GenerujKasowniki(self.iface)

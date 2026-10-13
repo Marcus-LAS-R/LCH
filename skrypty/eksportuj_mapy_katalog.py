@@ -174,7 +174,10 @@ def eksportuj_mapy(iface):
                 else:
                     wykonane += 1
                     _usun_aux(pdf_path)
-                    if min(szer_mm, wys_mm) < PROG_PASA_MM:
+                    # pary _x2 tylko dla wielkiego formatu - A3/A4 ida na
+                    # osobne drukarki jako oryginal
+                    if min(szer_mm, wys_mm) < PROG_PASA_MM and \
+                            not _miesci_sie_w_A3(szer_mm, wys_mm):
                         pasy.append((nazwa_pliku, pdf_path, szer_mm, wys_mm))
 
                 if eksportuj_tiff and 'LEG' != nazwa[-3:]:
@@ -190,8 +193,9 @@ def eksportuj_mapy(iface):
     fwys.write('\n'.join(['\t'.join(x) for x in wymiary]))
     fwys.close()
 
+    # pary _x2 zawsze obok folderu gminy: PLOTOWANIE/<gmina>_x2
     if paruj_pasy and pasy:
-        _polacz_pasy(pasy, folder_mapy)
+        _polacz_pasy(pasy, gmina_folder + '_x2')
 
     iface.mapCanvas().setRenderFlag(True)
     if pomiete:
@@ -217,6 +221,7 @@ def _polacz_pasy(pasy, plot_folder):
             'Brak biblioteki pypdf — pomijam dublowanie pasów.', 'LCH', Qgis.Warning)
         return
 
+    os.makedirs(plot_folder, exist_ok=True)
     for m in pasy:
         _dubluj(m, plot_folder)
 

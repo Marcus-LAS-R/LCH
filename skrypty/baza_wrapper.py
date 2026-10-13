@@ -440,7 +440,8 @@ class Baza(object):
         do_lacz.SPECIES_AGE,
         do_lacz.STANDDENSITY_INDEX,
         do_lacz.STOREY_CD,
-        do_lacz.STAND_STRUCT_CD
+        do_lacz.STAND_STRUCT_CD,
+        rodz_pow.veg_cover_cd
 
         FROM
 
@@ -449,7 +450,8 @@ class Baza(object):
         F_ARODES.ADRESS_FOREST,
         F_SUBAREA.SUB_AREA,
         F_SUBAREA.AREA_TYPE_CD,
-        F_SUBAREA.SITE_TYPE_CD
+        F_SUBAREA.SITE_TYPE_CD,
+        F_SUBAREA.veg_cover_cd
         FROM
         F_ARODES
         INNER JOIN F_SUBAREA
@@ -685,6 +687,21 @@ class Baza(object):
         """
 
         return self.cur.execute(sql).fetchall()
+
+    def pobierz_wydzielenia_nielesne(self):
+        """Pobierz adr_les z wydzieleniami nielesnymi"""
+
+        sql = """
+            SELECT distinct F_ARODES.ADRESS_FOREST
+            FROM F_PARCEL_LAND_USE INNER JOIN
+            (F_ARODES INNER JOIN F_AROD_LAND_USE ON
+            F_ARODES.ARODES_INT_NUM = F_AROD_LAND_USE.ARODES_INT_NUM) ON
+            (F_PARCEL_LAND_USE.SHAPE_NR = F_AROD_LAND_USE.SHAPE_NR) AND
+            (F_PARCEL_LAND_USE.PARCEL_INT_NUM = F_AROD_LAND_USE.PARCEL_INT_NUM)
+            GROUP BY F_ARODES.ADRESS_FOREST, F_PARCEL_LAND_USE.AREA_USE_CD
+            HAVING (((F_PARCEL_LAND_USE.AREA_USE_CD) Not Like "Ls"));
+        """
+        return self.pobierz(sql)
 
     def pobierz_rozliczenie_wydz(self):
         """Metoda pobiera zawartość tabeli F_ARDOD_LAND_USE i zwraca tabele

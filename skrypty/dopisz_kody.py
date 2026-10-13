@@ -1,11 +1,36 @@
 import os
 from collections import defaultdict
 from qgis.core import QgsVectorLayer, Qgis, QgsProject, QgsFields, \
-    QgsField, QgsMessageLog
+    QgsField, QgsMessageLog, QgsVectorFileWriter
 from PyQt5.QtCore import QMetaType
-from shutil import copyfile
 
 from .baza_wrapper import Baza, znajdz_baze_do_wydz
+from .sprawdzenia_warstw import SprawdzWydzielenia
+
+# pola doklejane przez "Scal warstwy wektorowe" - nie naleza do standardu
+_POLA_SCALANIA = ('layer', 'path')
+
+
+def _zapisz_shp_utf8(warstwa, sciezka_shp):
+    """Zapisuje warstwę do shapefile'a w UTF-8, bez pól layer/path.
+
+    Zamiast kopiować pliki 1:1 (razem z cudzym .cpg, np. 1250) przepisuje
+    dane przez QgsVectorFileWriter - atrybuty są czytane w kodowaniu
+    warstwy źródłowej i przekodowane do UTF-8, a .cpg = UTF-8. Zwraca
+    (True, '') albo (False, komunikat).
+    """
+    opcje = QgsVectorFileWriter.SaveVectorOptions()
+    opcje.driverName = 'ESRI Shapefile'
+    opcje.fileEncoding = 'UTF-8'
+    opcje.actionOnExistingFile = QgsVectorFileWriter.CreateOrOverwriteFile
+    opcje.attributes = [i for i, f in enumerate(warstwa.fields())
+                        if f.name().lower() not in _POLA_SCALANIA]
+    wynik = QgsVectorFileWriter.writeAsVectorFormatV3(
+        warstwa, sciezka_shp,
+        QgsProject.instance().transformContext(), opcje)
+    if wynik[0] != QgsVectorFileWriter.NoError:
+        return False, wynik[1]
+    return True, ''
 
 
 class recursivedefaultdict(defaultdict):
@@ -13,13 +38,14 @@ class recursivedefaultdict(defaultdict):
         self.default_factory = type(self)
 
 
-class DopiszKody():
+class DopiszKody(SprawdzWydzielenia):
     def __init__(self, iface):
         self.iface = iface
+        self.nielesne = []  # lista z adrles wydz nielesnych
 
         QgsMessageLog.logMessage(
             '--- DOPISZ METADANE DO WYDZIELEŃ ---',
-            'Las-R',
+            'LCH',
             Qgis.Info
         )
 
@@ -48,7 +74,7 @@ class DopiszKody():
     def koniec(self):
         QgsMessageLog.logMessage(
             '\n\n--- KONIEC ---',
-            'Las-R',
+            'LCH',
             Qgis.Info
         )
 
@@ -98,7 +124,7 @@ class DopiszKody():
                            'WB', 'OS', 'JW', 'LP']:
             QgsMessageLog.logMessage(
                 'Nierozpoznany gatunek, traktuję jako Klon: '+gat,
-                'Las-R',
+                'LCH',
                 Qgis.Warning
             )
             gat = 'KL'
@@ -261,11 +287,14 @@ class DopiszKody():
             self.sl = {x[0]: x[1:] for x in self.dane}
             self.ciecia_raw = self.baza.pobierz_zab_do_mapy()
             self.przetworz_zab()
+            self.nielesne = self.baza.pobierz_wydzielenia_nielesne()
+            self.nielesne = \
+                [x[0] for x in self.nielesne] if self.nielesne else []
             self.baza.zamknij()
 
             QgsMessageLog.logMessage(
                 'Przetworzyłem dane z bazy!',
-                'Las-R',
+                'LCH',
                 Qgis.Info
             )
 
@@ -273,7 +302,7 @@ class DopiszKody():
 
         QgsMessageLog.logMessage(
             'Nie udało się przetworzyć bazy i przygotować danych do dopisania',
-            'Las-R',
+            'LCH',
             Qgis.Critical
         )
 
@@ -355,21 +384,31 @@ class DopiszKody():
                 self.dopis[x[0]]['INNE'].append(x[1])
 
     def dopisz_kody(self):  # noqa
-        # kopiujemy shp
-        for roz in ['shp', 'shx', 'prj', 'dbf', 'cpg']:
-            try:
-                copyfile(self.wydz_path[:-3]+roz,
-                         os.path.join(self.kat, 'WYDZ_POL.' + roz))
-            except:  # noqa
-                pass
+        # kopia WYDZ przepisana do UTF-8 (bez layer/path) - przy kopiowaniu
+        # plików 1:1 .cpg ze źródła (np. 1250) nie zgadzał się z dopisanymi
+        # danymi (UTF-8)
+        wpol_sc = os.path.join(self.kat, "WYDZ_POL.shp")
+        if os.path.normcase(os.path.abspath(self.wydz_path)) == \
+                os.path.normcase(os.path.abspath(wpol_sc)):
+            self.iface.messageBar().pushMessage(
+                'BŁĄD', 'Wskaż warstwę WYDZ, a nie WYDZ_POL',
+                Qgis.Critical, 10)
+            return False
+        ok, komunikat = _zapisz_shp_utf8(self.wydz, wpol_sc)
+        if not ok:
+            self.iface.messageBar().pushMessage(
+                'BŁĄD',
+                'Nie udało się zapisać WYDZ_POL (jeśli jest otwarta '
+                'w projekcie, usuń ją z warstw): ' + komunikat,
+                Qgis.Critical, 10)
+            return False
 
-        self.wpol = QgsVectorLayer(os.path.join(self.kat, "WYDZ_POL.shp"),
-                                   "WYDZ_POL", "ogr")
+        self.wpol = QgsVectorLayer(wpol_sc, "WYDZ_POL", "ogr")
         self.wpol_data = self.wpol.dataProvider()
         self.wpol_data.setEncoding('UTF-8')
 
         # Dodajemy odpowiednie kolumny:
-        attr_nazwy = [x.name() for x in self.wydz.fields()]
+        attr_nazwy = [x.name() for x in self.wpol.fields()]
         attr = QgsFields()
         pola = [
             QgsField("COUNTY_L", QMetaType.Type.QString, len=1),
@@ -391,6 +430,7 @@ class DopiszKody():
             QgsField("STRUKTUR", QMetaType.Type.QString, len=20),
             QgsField("SLMN_KOL", QMetaType.Type.Int),
             QgsField("STL", QMetaType.Type.QString, len=20),
+            QgsField("POKRYWA", QMetaType.Type.QString, len=20),
             QgsField("ZABIEG", QMetaType.Type.QString, len=20),
             QgsField("POW_ZAB", QMetaType.Type.Double, 'double', 10, 4),
             QgsField("ODNOW", QMetaType.Type.QString, len=20),
@@ -421,7 +461,6 @@ class DopiszKody():
         for feat in self.wpol.getFeatures():
             dop = {}
             adr = feat['ADR_LES']
-            print(adr)
             if adr in self.sl:
                 # przygotuj kod gatunku z odpowiednia wielkoscia liter
                 gat = self.isNone(self.sl[adr][4])
@@ -438,7 +477,8 @@ class DopiszKody():
                     fnm['ZADRZEW']: round(
                         self.isNone(self.sl[adr][6], typ='i'), 1),
                     fnm['STRUKTUR']: self.isNone(self.sl[adr][8]),
-                    fnm['L_EWID']: 'T',
+                    fnm['L_EWID']: 'N' if adr in self.nielesne else 'T',
+                    fnm['POKRYWA']: self.isNone(self.sl[adr][9]),
                 }
 
                 if adr in self.dopis:
@@ -469,7 +509,7 @@ class DopiszKody():
                             except:  # nopep8
                                 QgsMessageLog.logMessage(
                                     'Niedopisane zabiegi w wydz: '+adr,
-                                    'Las-R',
+                                    'LCH',
                                     Qgis.Warning
                                 )
 
@@ -484,7 +524,7 @@ class DopiszKody():
                 if self.sl[adr][0] == "D-STAN" and kod > 560:
                     QgsMessageLog.logMessage(
                         adr + " - Blad generowania kodu - " +
-                        self.sl[adr][4] + " - " + kod,
+                        self.sl[adr][4] + " - " + str(kod),
                         "LCH")
                     self.iface.messageBar().pushMessage(
                         'UWAGA',
@@ -504,7 +544,7 @@ class DopiszKody():
 
             QgsMessageLog.logMessage(
                 '\n'.join([str(x) for x in brak_opisu]),
-                'LAS-R'
+                'LCH'
             )
 
         else:
@@ -513,6 +553,7 @@ class DopiszKody():
         QgsProject.instance().addMapLayer(self.wpol)
 
         self.koniec()
+        return True
 
 
 # if __name__ == '__console__':
