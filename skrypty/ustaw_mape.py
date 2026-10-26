@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from qgis.core import QgsProject, Qgis, QgsLayoutSize, QgsUnitTypes, \
     QgsRectangle, QgsLayoutItemMap, QgsLayoutPoint, QgsLayoutItemLabel
-from lasr.skrypty.baza_wrapper import Baza, znajdz_baze_do_wydz
+from .baza_wrapper import Baza, znajdz_baze_do_wydz
 from PyQt5.QtGui import QFont, QColor
 from PyQt5.QtWidgets import QInputDialog
 
@@ -344,8 +344,8 @@ class UstawMape():
             )
             return False
 
-        # jezeli ustawiamy map przegladowa dla obrebu, baza jest 2 poziomy
-        # wyzej
+        # baza szukana w gore od katalogu warstwy - dla mapy przegladowej
+        # obrebu od WYDZ_POL, dla pozostalych map od ODDZ
         if self.lay.name()[:16] == 'MAPA_PRZEGLADOWA':
             if self.wydz is False:
                 self.iface.messageBar().pushMessage(
@@ -358,15 +358,13 @@ class UstawMape():
 
             db_path = znajdz_baze_do_wydz(self.iface, self.wydz)
 
-        # a jezeli jakas mape dla gminy to baza powinna byc tylko jeden poziom
-        # powyzej warstwy
         else:
             db_path = znajdz_baze_do_wydz(self.iface, self.oddz)
 
         if db_path is False:
             self.iface.messageBar().pushMessage(
                 'BŁĄD',
-                'Nie udało się odnaleźć bazy (w przegladadowej 2 poziomy, w innych 1 poziom wyzej)',
+                'Nie udało się odnaleźć bazy w katalogach nadrzędnych',
                 Qgis.Critical,
                 10
             )
@@ -516,6 +514,11 @@ def ustaw_leg(iface):
                 oe.yMaximum()+((oe.height()/10)/2))
 
         it.setExtent(poglad_ramka)
+        # warstwy legendy (ATLAS_AFT, POG-*) widoczne sa w szablonie dopiero
+        # od 1:10001 - przy malym obrebie mapa przyblizalaby sie do stylu
+        # karty atlasu, wiec skale ograniczamy (zmiana wzgledem srodka)
+        if it.scale() < 10500:
+            it.setScale(10500)
         # it.setItemPosition(it.x(), popry+it.y(), 68.9, 78.8)
 
     lay.refresh()

@@ -23,12 +23,15 @@ class GenerujMapRam():
         self.minOdl = 600
         self.skala = 5000
         self.typ = 'pogl'
+        # caly obreb w jednej ramce - bez dzielenia na klastry/wyniesienia
+        self.calyObreb = False
 
         self.dd = PobierzDane()
         self.dd.exec_()
         if self.dd.ok:
             self.minOdl = int(self.dd.lineEdit_minOdl.text())
             self.skala = int(self.dd.lineEdit_skala.text())
+            self.calyObreb = self.dd.checkBox_calyObreb.isChecked()
             if self.dd.radioButton_inna.isChecked():
                 self.typ = 'inna'
 
@@ -120,6 +123,15 @@ class GenerujMapRam():
                     wRob.append(v)
                     adrLesRob.append(key)
 
+                # caly obreb na mapie - wszystkie wydzielenia w jednym klastrze
+                if self.calyObreb:
+                    kl = Klaster(self.minOdl)
+                    kl.skala = self.skala
+                    for adr, v in zip(adrLesRob, wRob):
+                        kl.dodajWydz(adr, v)
+                    self.slKl[gmi][obr] = [kl, ]
+                    continue
+
                 klastry = []
                 i = 0
                 kl = False
@@ -174,6 +186,31 @@ class GenerujMapRam():
                 level=Qgis.Critical)
             return False
 
+        self.slKl = recursivedefaultdict()
+
+        # caly obreb na mapie - osobna ramka dla kazdego obrebu
+        if self.calyObreb:
+            zakresy = {}
+            for feat in self.wydz.getFeatures():
+                klucz = (feat['MUNICIP'], feat['COMMUNITY'])
+                bb = feat.geometry().boundingBox()
+                if klucz in zakresy:
+                    zakresy[klucz].combineExtentWith(bb)
+                else:
+                    zakresy[klucz] = bb
+
+            for (gm, obr), bound in zakresy.items():
+                kl = Klaster(self.minOdl)
+                kl.skala = self.skala
+                kl.dodajWydz('adr', [bound.xMinimum(), bound.yMinimum(),
+                                     bound.xMaximum(), bound.yMaximum()])
+                if not kl.ustawPlot():
+                    self.doSpr.append(
+                        [gm, obr, "Wiekszy niz papier",
+                         QgsGeometry.fromPolygonXY([kl.zwrocPoly()])])
+                self.slKl[gm][obr] = [kl, ]
+            return True
+
         # znajdz zasieg warstwy oddzialow
         bound = self.wydz.extent()
         xmin = bound.xMinimum()
@@ -183,7 +220,6 @@ class GenerujMapRam():
 
         feat = next(self.wydz.getFeatures())
         gm = feat['MUNICIP']
-        self.slKl = recursivedefaultdict()
         kl = Klaster(self.minOdl)
         kl.skala = self.skala
         kl.dodajWydz('adr', [xmin, ymin, xmax, ymax])

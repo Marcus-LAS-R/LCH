@@ -1,6 +1,29 @@
 CHANGELOG — Wtyczka LCH LAS-R
 ==============================
 
+Wersja 2.1 — zmiany wprowadzone 26.10.2026
+------------------------------------------------
+
+### Nowe funkcje
+
+1. GENERUJ MAPRAM — opcja "Cały obręb na mapie" (genMapRam.py)
+   - Nowy checkbox pod skalą, domyślnie wyłączony
+   - Mapa przeglądowa: cały obręb w jednej ramce, bez dzielenia na
+     klastry i wyniesienia
+   - Mapa PPOŻ/FOCHR/OGÓLNA: osobna ramka dla każdego obrębu zamiast
+     jednej na całą warstwę ODDZ
+
+### Poprawki
+
+1. USTAW MAPĘ / USTAW MAPY (KATALOG) — szukanie bazy (ustaw_mape.py)
+   - Baza szukana w górę od katalogu warstwy aż do bazy głównej (wcześniej
+     tylko 1-2 poziomy wyżej, przez starą funkcję z wtyczki LAS-R)
+
+2. USTAW LEGENDĘ — małe obręby (ustaw_mape.py)
+   - Skala mapy LEGENDA ograniczona do min. 1:10 500 — przy małym obrębie
+     mapa nie przybliża się już do stylu karty atlasu i ramki pól atlasu
+     pozostają widoczne
+
 Wersja 2.0 — zmiany wprowadzone 16.09–13.10.2026 (wyjście z bety)
 ------------------------------------------------
 
