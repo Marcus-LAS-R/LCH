@@ -1,6 +1,35 @@
 CHANGELOG — Wtyczka LCH LAS-R
 ==============================
 
+Wersja 2.2 — zmiany wprowadzone 16.11.2026
+------------------------------------------------
+
+### Nowe funkcje
+
+1. GENERUJ MAPRAM — "Cały obręb na mapie" według poligonu obrębu
+   - Na mapie przeglądowej ramka obejmuje cały obręb z warstwy ODDZ
+     (oddziały łączone po MUNICIP i COMMUNITY), a nie tylko wydzielenia
+   - Wymaga warstwy ODDZ w TOC (komunikat, jeśli jej brak)
+
+### Poprawki
+
+1. GENERUJ MAPRAM — ponowne generowanie w otwartym projekcie mapy
+   - Ramki są podmieniane w istniejącej warstwie MapRam (styl i minimapa
+     zostają) - wcześniej dochodziła druga warstwa MapRam, a minimapa
+     dalej pokazywała stare zasięgi wyniesień
+   - Nieudany zapis MapRam.shp jest zgłaszany (wcześniej komunikat
+     "zapisana na dysku" pojawiał się mimo błędu)
+   - Stara warstwa PROBLEMY_MAPRAM jest usuwana przed generowaniem
+
+2. EKSPORTUJ MAPY (KATALOG) / USTAW LEGENDY (KATALOG) — legendy atlasów
+   - PDF legendy (LEG) trafia tam, gdzie atlasy: do Atlasy/, gdy gmina
+     ma też mapy, inaczej wprost do folderu gminy (wcześniej Ustaw Legendy
+     zapisywał do PLOTOWANIE/, a eksport traktował legendę jak mapę)
+   - Legenda bez przyrostka _A3 i bez par _x2
+
+3. Ikona "Dopisz kody" — nowa (WYDZ POL), odróżnia się od "Dopisz
+   metadane" we wtyczce LAS-R
+
 Wersja 2.1 — zmiany wprowadzone 26.10.2026
 ------------------------------------------------
 
