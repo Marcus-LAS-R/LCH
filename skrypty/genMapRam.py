@@ -9,6 +9,19 @@ from PyQt5.QtWidgets import QDialog, QMessageBox
 from .ui.ui_mapram import Ui_Dialog
 
 
+def _znormalizuj(sciezka):
+    return os.path.normcase(os.path.abspath(sciezka))
+
+
+def _plik_warstwy(lyr):
+    """Znormalizowana sciezka pliku warstwy ('' gdy brak)."""
+    try:
+        sc = lyr.dataProvider().dataSourceUri().split('|')[0]
+    except Exception:
+        return ''
+    return _znormalizuj(sc) if sc else ''
+
+
 class recursivedefaultdict(defaultdict):
     def __init__(self):
         self.default_factory = type(self)
@@ -71,12 +84,49 @@ class GenerujMapRam():
                                  Qgis.Info)
 
         if self.typ == 'pogl':
+            if self.calyObreb and not self.zasiegiObrebow():
+                return
             self.klastruj()
             if not self.ustawKlastry():
                 return
         else:
             self.ustaw_duza_mape()
         self.rysujKlastry()
+
+    def zasiegiObrebow(self):
+        """ Dla opcji "Cały obręb na mapie" na mapie przeglądowej: zasięgi
+        obrębów z warstwy ODDZ - oddziały jednego obrębu łączone po MUNICIP
+        i COMMUNITY -> self.slObr[(gmi, obr)] = QgsRectangle. Dzięki temu
+        ramka obejmuje cały poligon obrębu, a nie tylko wydzielenia. """
+        oddz = False
+        for lyr in QgsProject.instance().mapLayers().values():
+            if lyr.name() == "ODDZ":
+                oddz = lyr
+        if oddz is False:
+            self.iface.messageBar().pushMessage(
+                'Error', 'Opcja "Cały obręb na mapie" wymaga warstwy ODDZ '
+                'w TOC!', level=Qgis.Critical)
+            return False
+
+        nazwy = [f.name() for f in oddz.fields()]
+        braki = [x for x in ['MUNICIP', 'COMMUNITY'] if x not in nazwy]
+        if braki:
+            self.iface.messageBar().pushMessage(
+                'Error', "Brak niezbędnych pól w warstwie ODDZ - " +
+                ",".join(braki), level=Qgis.Critical)
+            return False
+
+        self.slObr = {}
+        for feat in oddz.getFeatures():
+            geom = feat.geometry()
+            if geom is None or geom.isEmpty():
+                continue
+            klucz = (feat['MUNICIP'], feat['COMMUNITY'])
+            if klucz in self.slObr:
+                self.slObr[klucz].combineExtentWith(geom.boundingBox())
+            else:
+                self.slObr[klucz] = geom.boundingBox()
+        return True
 
     def klastruj(self):
         """ Metoda tworzy slownik z klastrami z wydzielen pogrupowanych dla
@@ -124,11 +174,22 @@ class GenerujMapRam():
                     adrLesRob.append(key)
 
                 # caly obreb na mapie - wszystkie wydzielenia w jednym klastrze
+                # poszerzonym o zasieg obrebu z ODDZ (dodawany po
+                # wydzieleniach - Klaster bierze gmi/obr z pierwszego ADR_LES)
                 if self.calyObreb:
                     kl = Klaster(self.minOdl)
                     kl.skala = self.skala
                     for adr, v in zip(adrLesRob, wRob):
                         kl.dodajWydz(adr, v)
+                    obreb = self.slObr.get((gmi, obr))
+                    if obreb is not None:
+                        kl.dodajWydz('obreb', [
+                            obreb.xMinimum(), obreb.yMinimum(),
+                            obreb.xMaximum(), obreb.yMaximum()])
+                    else:
+                        QgsMessageLog.logMessage(
+                            "Brak obrebu " + str(gmi) + ", " + str(obr) +
+                            " w ODDZ - ramka wg wydzielen", "LCH")
                     self.slKl[gmi][obr] = [kl, ]
                     continue
 
@@ -265,6 +326,12 @@ class GenerujMapRam():
         return True
 
     def rysujKlastry(self):  # noqa
+        # problemy z poprzedniego generowania sa juz nieaktualne
+        stare = [lyr.id() for lyr in QgsProject.instance().mapLayers().values()
+                 if lyr.name() == "PROBLEMY_MAPRAM"]
+        if stare:
+            QgsProject.instance().removeMapLayers(stare)
+
         nazwa = "MapRam"
         if self.STOP:
             nazwa = "KLASTRY"
@@ -351,26 +418,91 @@ class GenerujMapRam():
         self.ramkiKlPr.addFeatures(etykFeat)
         self.ramkiKl.commitChanges()
 
-        crs = QgsCoordinateReferenceSystem("epsg:2180")
-        QgsVectorFileWriter.writeAsVectorFormat(
-            self.ramkiKl,
-            os.path.join(self.kat, "MapRam.shp"),
-            "UTF-8",
-            crs,
-            "ESRI Shapefile")
+        zapisano = self._zapiszMapRam()
 
-        if len(self.doSpr) == 0:
+        if zapisano and len(self.doSpr) == 0:
             self.iface.messageBar().pushMessage(
                     'OK',
                     u'Warstwa MapRam zapisana na dysku',
                     level=Qgis.Success)
 
-        self.out = QgsVectorLayer(os.path.join(self.kat, "MapRam.shp"),
-                                  "MapRam",
-                                  "ogr")
-
-        QgsProject.instance().addMapLayer(self.out)
+        # odswiez layouty - minimapa pokazuje zasiegi ramek z MapRam
+        for lay in QgsProject.instance().layoutManager().layouts():
+            lay.refresh()
         QgsMessageLog.logMessage("--------------------", "LCH", Qgis.Info)
+
+    def _zapiszMapRam(self):
+        """Zapisuje ramki do MapRam.shp. Jezeli warstwa z tego pliku jest juz
+        w projekcie (np. ponowne generowanie w otwartym projekcie mapy),
+        podmienia jej obiekty w miejscu - plik jest wtedy zablokowany do
+        nadpisania, a warstwa zachowuje id, styl i powiazania z layoutem
+        (minimapa, zablokowane warstwy). Bez tego dochodzila druga warstwa
+        MapRam, a minimapa dalej pokazywala stare zasiegi wyniesien."""
+        sciezka = os.path.join(self.kat, "MapRam.shp")
+        istniejace = [
+            lyr for lyr in QgsProject.instance().mapLayers().values()
+            if isinstance(lyr, QgsVectorLayer) and
+            _plik_warstwy(lyr) == _znormalizuj(sciezka)]
+
+        if istniejace:
+            ok = all(self._podmienObiekty(lyr) for lyr in istniejace)
+            self.out = istniejace[0]
+            return ok
+
+        crs = QgsCoordinateReferenceSystem("epsg:2180")
+        wynik = QgsVectorFileWriter.writeAsVectorFormat(
+            self.ramkiKl, sciezka, "UTF-8", crs, "ESRI Shapefile")
+        blad = wynik[0] if isinstance(wynik, tuple) else wynik
+        if blad != QgsVectorFileWriter.NoError:
+            opis = wynik[1] if isinstance(wynik, tuple) else ''
+            self.iface.messageBar().pushMessage(
+                'BŁĄD', u'Nie udało się zapisać MapRam.shp: ' + str(opis),
+                level=Qgis.Critical)
+            return False
+
+        self.out = QgsVectorLayer(sciezka, "MapRam", "ogr")
+        QgsProject.instance().addMapLayer(self.out)
+        return True
+
+    def _podmienObiekty(self, lyr):
+        """Zastepuje wszystkie obiekty warstwy `lyr` ramkami z
+        self.ramkiKl (brakujace pola, np. 'skala' w starych MapRamach, sa
+        dopisywane)."""
+        if lyr.isEditable():
+            self.iface.messageBar().pushMessage(
+                'BŁĄD', u'Warstwa ' + lyr.name() + u' jest w trybie edycji - '
+                u'zakończ edycję i wygeneruj MapRam ponownie',
+                level=Qgis.Critical)
+            return False
+
+        pr = lyr.dataProvider()
+        brak = [f for f in self.ramkiKl.fields()
+                if lyr.fields().indexOf(f.name()) == -1]
+        if brak:
+            pr.addAttributes(brak)
+            lyr.updateFields()
+
+        stare = [f.id() for f in lyr.getFeatures(
+            QgsFeatureRequest().setNoAttributes().setFlags(
+                QgsFeatureRequest.NoGeometry))]
+        ok = pr.deleteFeatures(stare)
+
+        nowe = []
+        for f in self.ramkiKl.getFeatures():
+            nf = QgsFeature(lyr.fields())
+            nf.setGeometry(f.geometry())
+            for pole in self.ramkiKl.fields().names():
+                nf[pole] = f[pole]
+            nowe.append(nf)
+        ok = pr.addFeatures(nowe)[0] and ok
+
+        lyr.updateExtents()
+        lyr.triggerRepaint()
+        if not ok:
+            self.iface.messageBar().pushMessage(
+                'BŁĄD', u'Nie udało się zaktualizować warstwy ' + lyr.name(),
+                level=Qgis.Critical)
+        return ok
 
     def _utworzWarstweProblemow(self):
         """Tworzy warstwe memory z geometriami klastrow, ktore spowodowaly

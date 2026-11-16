@@ -296,7 +296,7 @@ class Lch:
         self.a_gen_klu_lft.triggered.connect(self.generuj_klu_lft)
 
         self.a_dopisz_kody = QAction(
-            QIcon(os.path.join(self.plugin_dir, 'ico', 'wydz_dopisz.png')),
+            QIcon(os.path.join(self.plugin_dir, 'ico', 'dopisz_kody.png')),
             'Dopisz kody', self.iface.mainWindow())
         self.a_dopisz_kody.triggered.connect(self.dopisz_meta)
 

@@ -6,6 +6,7 @@ from qgis.core import QgsProject, Qgis, QgsLayoutExporter
 
 from .ustaw_mape import UstawMape, dopisz_ark_do_nazwy
 from .ustaw_mape import ustaw_leg as ustaw_leg_poj
+from .eksportuj_mapy_katalog import rodzaje_layoutow, folder_atlasow
 
 
 def ustaw_mapy(iface):
@@ -85,19 +86,27 @@ def ustaw_mapy(iface):
 def ustaw_leg(iface):
     projects_folder = QFileDialog.getExistingDirectory(
         iface.mainWindow(), "Wybierz katalog: ")
+    if not projects_folder:
+        return
 
-    # stworz folder plotowania oIle nie istnieje
-    plot_folder = os.path.abspath(
-        os.path.join(projects_folder, '..', '..', 'PLOTOWANIE'))
-    if not os.path.exists(plot_folder):
-        os.mkdir(plot_folder)
-
-    # znajdz wszystkie projekty w podanym katalogu.
-    projectPaths = []
+    # PDF legend tam, gdzie "Eksportuj mapy (katalog)" kladzie atlasy:
+    # PLOTOWANIE/<gmina>/Atlasy, gdy gmina ma tez mapy, inaczej wprost
+    # PLOTOWANIE/<gmina> (gmina = nazwa wskazanego katalogu)
+    wszystkie = []
     for root, dirs, files in os.walk(projects_folder):
-        projectPaths += [
-            os.path.join(root, f) for f in files
-            if f[-3:] in ['qgs', 'qgz'] and f[:3] == 'LEG']
+        wszystkie += [os.path.join(root, f) for f in files
+                      if f[-3:] in ['qgs', 'qgz']]
+    projectPaths = [p for p in wszystkie
+                    if os.path.basename(p)[:3] == 'LEG']
+
+    gmina_folder = os.path.join(
+        os.path.abspath(os.path.join(projects_folder, '..', '..',
+                                     'PLOTOWANIE')),
+        os.path.basename(os.path.normpath(projects_folder)))
+    _, ma_mapy = rodzaje_layoutow(wszystkie)
+    plot_folder = folder_atlasow(gmina_folder, ma_mapy)
+    if not os.path.exists(plot_folder):
+        os.makedirs(plot_folder)
 
     # wylacz rysowania mapy w trakcie ustawiania layoutow
     iface.mapCanvas().setRenderFlag(False)

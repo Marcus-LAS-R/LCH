@@ -12,6 +12,38 @@ def _miesci_sie_w_A3(szer_mm, wys_mm):
     return min(szer_mm, wys_mm) <= 298 and max(szer_mm, wys_mm) <= 421
 
 
+def jest_legenda(lay):
+    """Layout legendy atlasu (LEG*) - eksportowany razem z atlasami, nie
+    jako mapa."""
+    nazwa = lay.name().upper()
+    return nazwa.startswith('LEG') or nazwa.endswith('LEG')
+
+
+def rodzaje_layoutow(projectPaths):
+    """(ma_atlas, ma_mapy) dla projektow gminy - atlas albo legenda atlasu
+    to atlas, kazdy inny layout to mapa. Gdy sa oba rodzaje, PDF-y ida do
+    podfolderow Mapy/Atlasy folderu gminy, inaczej wprost do folderu gminy.
+    Wczytuje projekty do QgsProject.instance()."""
+    ma_atlas = False
+    ma_mapy = False
+    proj = QgsProject.instance()
+    for projectPath in sorted(projectPaths):
+        proj.read(projectPath)
+        for lay in proj.layoutManager().layouts():
+            if lay.atlas().enabled() or jest_legenda(lay):
+                ma_atlas = True
+            else:
+                ma_mapy = True
+    return ma_atlas, ma_mapy
+
+
+def folder_atlasow(gmina_folder, ma_mapy):
+    """Folder PDF-ow atlasow i legend gminy (Atlasy, gdy sa tez mapy)."""
+    if ma_mapy:
+        return os.path.join(gmina_folder, 'Atlasy')
+    return gmina_folder
+
+
 def _usun_aux(pdf_path):
     """Usuwa sidecar .aux.xml, ktory GDAL dopisuje przy eksporcie PDF."""
     aux_path = pdf_path + '.aux.xml'
@@ -102,16 +134,8 @@ def eksportuj_mapy(iface):
     # najpierw sprawdz, czy wsrod projektow wystepuja oba typy layoutow
     # (mapa pogladowa i atlas) - jesli tak, eksport rozbijamy na podfoldery
     # Mapy/Atlasy w folderze gminy, w przeciwnym razie piszemy wprost do
-    # folderu gminy
-    ma_atlas = False
-    ma_mapy = False
-    for projectPath in sorted(projectPaths):
-        proj.read(projectPath)
-        for lay in QgsProject.instance().layoutManager().layouts():
-            if lay.atlas().enabled():
-                ma_atlas = True
-            else:
-                ma_mapy = True
+    # folderu gminy. Legenda atlasu (LEG*) liczy sie jak atlas.
+    ma_atlas, ma_mapy = rodzaje_layoutow(projectPaths)
 
     if ma_atlas and ma_mapy:
         folder_mapy = os.path.join(gmina_folder, 'Mapy')
@@ -162,6 +186,18 @@ def eksportuj_mapy(iface):
                     wykonane += 1
                     _usun_aux(pdf_path)
 
+            elif jest_legenda(lay):
+                # legenda atlasu - razem z atlasami, bez _A3 i par _x2
+                pdf_path = os.path.join(folder_atlasy, nazwa + '.pdf')
+                res = exporter.exportToPdf(
+                    pdf_path,
+                    QgsLayoutExporter.PdfExportSettings())
+                if res != QgsLayoutExporter.Success:
+                    bledne += 1
+                else:
+                    wykonane += 1
+                    _usun_aux(pdf_path)
+
             else:
                 # Mapy mieszczące się na A3 dostają przyrostek _A3 w nazwie pliku
                 nazwa_pliku = nazwa + ('_A3' if _miesci_sie_w_A3(szer_mm, wys_mm) else '')
@@ -180,7 +216,7 @@ def eksportuj_mapy(iface):
                             not _miesci_sie_w_A3(szer_mm, wys_mm):
                         pasy.append((nazwa_pliku, pdf_path, szer_mm, wys_mm))
 
-                if eksportuj_tiff and 'LEG' != nazwa[-3:]:
+                if eksportuj_tiff:
                     res = exporter.exportToImage(
                         os.path.join(folder_mapy, nazwa_pliku + '.tif'),
                         QgsLayoutExporter.ImageExportSettings())
